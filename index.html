@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cover Letter Generator</title>
   <meta name="description" content="Generate a tailored cover letter from a job description + your resume." />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js"></script>
   <style>
     :root{
       --bg: #0b1020;
@@ -19,6 +21,14 @@
     }
     *{ box-sizing:border-box; }
     body{
+      <div class="row" style="margin-top:10px;">
+  <input id="email" placeholder="Email" style="flex:1; min-width:220px; padding:10px 12px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text);" />
+  <input id="password" type="password" placeholder="Password" style="flex:1; min-width:220px; padding:10px 12px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text);" />
+  <button class="btn" id="signup">Sign up</button>
+  <button class="btn" id="login">Log in</button>
+  <button class="btn ghost" id="logout" style="display:none;">Log out</button>
+</div>
+<div class="muted" id="authStatus" style="margin-top:8px;">Please sign up or log in to generate.</div>
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
       color: var(--text);
@@ -218,7 +228,10 @@
               </label>
               <textarea id="job" placeholder="Paste the job description here..."></textarea>
             </div>
-
+<div class="row" style="margin-top:8px;">
+  <input id="resumePdf" type="file" accept="application/pdf" />
+  <span class="muted">PDF will auto-fill the resume box.</span>
+</div>
             <div>
               <label>
                 <span><b>Your resume</b></span>
@@ -275,103 +288,221 @@
     </div>
   </div>
 
-  <script>
-    // ✅ Replace this with your Railway public domain (no trailing slash)
-    const BACKEND = "https://cover-letter-api-production-fe17.up.railway.app";
-    // Example: https://cover-letter-api-production.up.railway.app
+ <script>
+  // ✅ your Railway API base
+  const BACKEND = "https://cover-letter-api-production-fe17.up.railway.app";
 
-    const els = {
-      job: document.getElementById("job"),
-      resume: document.getElementById("resume"),
-      tone: document.getElementById("tone"),
-      generate: document.getElementById("generate"),
-      output: document.getElementById("output"),
-      status: document.getElementById("status"),
-      toast: document.getElementById("toast"),
-      copy: document.getElementById("copy"),
-      clear: document.getElementById("clear"),
-      sample: document.getElementById("sample"),
-      jobCount: document.getElementById("jobCount"),
-      resumeCount: document.getElementById("resumeCount"),
-      health: document.getElementById("health")
-    };
+  // ✅ Supabase (client-side uses ANON key only)
+  const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+  const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    els.health.href = BACKEND;
+  const els = {
+    email: document.getElementById("email"),
+    password: document.getElementById("password"),
+    signup: document.getElementById("signup"),
+    login: document.getElementById("login"),
+    logout: document.getElementById("logout"),
+    authStatus: document.getElementById("authStatus"),
 
-    function setToast(msg, ok=false){
-      els.toast.className = "toast" + (ok ? " ok" : "");
-      els.toast.textContent = msg;
-      els.toast.style.display = "block";
-      setTimeout(() => { els.toast.style.display = "none"; }, 3200);
+    job: document.getElementById("job"),
+    resume: document.getElementById("resume"),
+    resumePdf: document.getElementById("resumePdf"),
+    tone: document.getElementById("tone"),
+    generate: document.getElementById("generate"),
+    output: document.getElementById("output"),
+    status: document.getElementById("status"),
+    toast: document.getElementById("toast"),
+    copy: document.getElementById("copy"),
+    clear: document.getElementById("clear"),
+    sample: document.getElementById("sample"),
+    jobCount: document.getElementById("jobCount"),
+    resumeCount: document.getElementById("resumeCount"),
+    health: document.getElementById("health"),
+    pay: document.getElementById("pay")
+  };
+
+  els.health.href = BACKEND;
+
+  function setToast(msg, ok=false){
+    els.toast.className = "toast" + (ok ? " ok" : "");
+    els.toast.textContent = msg;
+    els.toast.style.display = "block";
+    setTimeout(() => { els.toast.style.display = "none"; }, 3200);
+  }
+
+  function count(el, outEl){
+    outEl.textContent = (el.value || "").length + " chars";
+  }
+
+  els.job.addEventListener("input", () => count(els.job, els.jobCount));
+  els.resume.addEventListener("input", () => count(els.resume, els.resumeCount));
+
+  // ---------- AUTH ----------
+  async function refreshAuthUI() {
+    const { data: { session } } = await supabase.auth.getSession();
+    const loggedIn = !!session?.user;
+
+    els.generate.disabled = !loggedIn;
+    els.signup.style.display = loggedIn ? "none" : "";
+    els.login.style.display = loggedIn ? "none" : "";
+    els.logout.style.display = loggedIn ? "" : "none";
+    els.authStatus.textContent = loggedIn
+      ? `Logged in as ${session.user.email}`
+      : "Please sign up or log in to generate.";
+
+    if (loggedIn) {
+      // ensure profile exists on backend
+      await fetch(BACKEND + "/me/ensure-profile", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + session.access_token }
+      });
     }
+  }
 
-    function count(el, outEl){
-      outEl.textContent = (el.value || "").length + " chars";
+  els.signup.onclick = async () => {
+    const email = (els.email.value || "").trim();
+    const password = els.password.value || "";
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) return setToast(error.message);
+    setToast("Signed up. Now log in.", true);
+  };
+
+  els.login.onclick = async () => {
+    const email = (els.email.value || "").trim();
+    const password = els.password.value || "";
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return setToast(error.message);
+    setToast("Logged in.", true);
+    await refreshAuthUI();
+  };
+
+  els.logout.onclick = async () => {
+    await supabase.auth.signOut();
+    setToast("Logged out.", true);
+    await refreshAuthUI();
+  };
+
+  supabase.auth.onAuthStateChange(() => refreshAuthUI());
+  refreshAuthUI();
+
+  // ---------- STRIPE SUBSCRIBE BUTTON ----------
+  // Replace the existing "STRIPE_PAYMENT_LINK_HERE" concept:
+  // We'll request a Checkout Session from the backend and redirect the user.
+  els.pay.onclick = async (e) => {
+    e.preventDefault();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return setToast("Please log in first.");
+
+    const r = await fetch(BACKEND + "/stripe/create-checkout-session", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + session.access_token }
+    });
+    const data = await r.json();
+    if (!r.ok) return setToast(data.error || "Checkout failed");
+    window.location.href = data.url;
+  };
+
+  // ---------- PDF -> TEXT (Resume) ----------
+  async function pdfToText(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    let text = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items.map(it => it.str);
+      text += strings.join(" ") + "\n\n";
     }
+    return text.trim();
+  }
 
-    els.job.addEventListener("input", () => count(els.job, els.jobCount));
-    els.resume.addEventListener("input", () => count(els.resume, els.resumeCount));
-
-    els.sample.onclick = () => {
-      els.job.value = `We’re hiring a Frontend Engineer to build polished, user-friendly experiences. You’ll work with product and design to ship fast, care about accessibility, and communicate clearly. Bonus: experience with APIs and performance tuning.`;
-      els.resume.value = `Frontend engineer with 4+ years building React apps, improving conversion and performance. Recently led a redesign that increased signups by 18% and reduced load times by 35%. Strong collaboration with design/product, and comfortable integrating APIs.`;
-      count(els.job, els.jobCount);
+  els.resumePdf.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      els.status.textContent = "Reading PDF…";
+      const text = await pdfToText(file);
+      els.resume.value = text;
       count(els.resume, els.resumeCount);
-      setToast("Sample pasted. Hit Generate.", true);
-    };
-
-    els.clear.onclick = () => {
-      els.job.value = "";
-      els.resume.value = "";
-      els.output.textContent = "Your generated cover letter will appear here.";
       els.status.textContent = "Ready";
-      count(els.job, els.jobCount);
-      count(els.resume, els.resumeCount);
-    };
+      setToast("PDF imported into resume box.", true);
+    } catch (err) {
+      els.status.textContent = "Error";
+      setToast("PDF read failed. Try a different PDF.");
+    }
+  });
 
-    els.copy.onclick = async () => {
-      try{
-        await navigator.clipboard.writeText(els.output.textContent || "");
-        setToast("Copied to clipboard.", true);
-      }catch(e){
-        setToast("Copy failed. Select text manually.");
-      }
-    };
+  // ---------- EXISTING UI ACTIONS ----------
+  els.sample.onclick = () => {
+    els.job.value = `We’re hiring a Frontend Engineer to build polished, user-friendly experiences...`;
+    els.resume.value = `Frontend engineer with 4+ years building React apps...`;
+    count(els.job, els.jobCount);
+    count(els.resume, els.resumeCount);
+    setToast("Sample pasted. Hit Generate.", true);
+  };
 
-    els.generate.onclick = async () => {
-      const jobDescription = els.job.value.trim();
-      const resume = els.resume.value.trim();
-      const tone = els.tone.value;
+  els.clear.onclick = () => {
+    els.job.value = "";
+    els.resume.value = "";
+    els.output.textContent = "Your generated cover letter will appear here.";
+    els.status.textContent = "Ready";
+    count(els.job, els.jobCount);
+    count(els.resume, els.resumeCount);
+  };
 
-      if (!jobDescription || !resume){
-        setToast("Paste BOTH job description and resume.");
-        return;
-      }
+  els.copy.onclick = async () => {
+    try{
+      await navigator.clipboard.writeText(els.output.textContent || "");
+      setToast("Copied to clipboard.", true);
+    }catch(e){
+      setToast("Copy failed. Select text manually.");
+    }
+  };
 
-      els.generate.disabled = true;
-      els.status.textContent = "Generating…";
-      els.output.textContent = "Working…";
+  // ---------- GENERATE (now requires login token) ----------
+  els.generate.onclick = async () => {
+    const jobDescription = els.job.value.trim();
+    const resume = els.resume.value.trim();
+    const tone = els.tone.value;
 
-      try{
-        const r = await fetch(BACKEND + "/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jobDescription, resume, tone })
-        });
+    if (!jobDescription || !resume){
+      setToast("Paste BOTH job description and resume.");
+      return;
+    }
 
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || "Request failed");
-        els.output.textContent = (data.text || "").trim() || "No output returned.";
-        els.status.textContent = "Done";
-        setToast("Generated.", true);
-      }catch(e){
-        els.output.textContent = "Error: " + e.message;
-        els.status.textContent = "Error";
-        setToast(e.message);
-      }finally{
-        els.generate.disabled = false;
-      }
-    };
-  </script>
-</body>
-</html>
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setToast("Please log in first.");
+      return;
+    }
+
+    els.generate.disabled = true;
+    els.status.textContent = "Generating…";
+    els.output.textContent = "Working…";
+
+    try{
+      const r = await fetch(BACKEND + "/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + session.access_token
+        },
+        body: JSON.stringify({ jobDescription, resume, tone })
+      });
+
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Request failed");
+      els.output.textContent = (data.text || "").trim() || "No output returned.";
+      els.status.textContent = "Done";
+      setToast("Generated.", true);
+    }catch(e){
+      els.output.textContent = "Error: " + e.message;
+      els.status.textContent = "Error";
+      setToast(e.message);
+    }finally{
+      els.generate.disabled = false;
+    }
+  };
+</script>
