@@ -867,7 +867,7 @@
             <div class="pdf-upload">
               <span>&#128196;</span>
               <input id="resumePdf" type="file" accept="application/pdf,.pdf" />
-              <span>Upload PDF (max 8MB) to auto-summarize</span>
+              <span>Upload PDF (max 20MB) to auto-summarize</span>
             </div>
             <textarea id="resume" placeholder="Upload a resume PDF to populate this field." readonly style="margin-top: 8px;"></textarea>
           </div>
@@ -1053,7 +1053,7 @@
     let localDevMode = false;
     let resumeLoadedFromPdf = false;
     let lastResumeUploadError = "";
-    const MAX_RESUME_FILE_BYTES = 8 * 1024 * 1024;
+    const MAX_RESUME_FILE_BYTES = 20 * 1024 * 1024;
 
     const LOCAL_STORAGE_KEYS = {
       resume: "cc_resume",
@@ -1319,7 +1319,8 @@
       var file = e.target.files && e.target.files[0];
       if (!file) return;
       if (file.size > MAX_RESUME_FILE_BYTES) {
-        setToast("File is too large. Max size is 8MB.");
+        var fileMb = (file.size / (1024 * 1024)).toFixed(1);
+        setToast("File is too large (" + fileMb + "MB). Max size is 20MB.");
         els.resumePdf.value = "";
         return;
       }

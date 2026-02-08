@@ -5,7 +5,7 @@ import { jsonResponse, optionsResponse } from "./shared/http.mjs";
 
 const SCANNED_THRESHOLD = 200;
 const MAX_SUMMARY_CHARS = 900;
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 function computeHash(text) {
   // Simple hash using Web Crypto-compatible approach
@@ -66,7 +66,7 @@ export default async (req) => {
     return jsonResponse(400, { error: "Only PDF files are supported." });
   }
   if (typeof file.size === "number" && file.size > MAX_FILE_BYTES) {
-    return jsonResponse(413, { error: "File is too large. Max size is 8MB." });
+    return jsonResponse(413, { error: "File is too large. Max size is 20MB." });
   }
 
   // 3. Extract text from PDF
