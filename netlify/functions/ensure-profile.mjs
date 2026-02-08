@@ -1,23 +1,18 @@
 import { getAuthenticatedUser, getSupabaseAdmin } from "./shared/supabase.mjs";
+import { jsonResponse, optionsResponse } from "./shared/http.mjs";
 
 export default async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204 });
+    return optionsResponse();
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(405, { error: "Method not allowed" });
   }
 
   const user = await getAuthenticatedUser(req);
   if (!user) {
-    return new Response(JSON.stringify({ error: "Not authenticated" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(401, { error: "Not authenticated" });
   }
 
   const supabase = getSupabaseAdmin();
@@ -26,15 +21,13 @@ export default async (req) => {
     {
       id: user.id,
       email: user.email,
+      updated_at: new Date().toISOString(),
     },
-    { onConflict: "id", ignoreDuplicates: true }
+    { onConflict: "id" }
   );
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(500, { error: error.message });
   }
 
   const { data: profile } = await supabase
@@ -43,10 +36,7 @@ export default async (req) => {
     .eq("id", user.id)
     .single();
 
-  return new Response(JSON.stringify({ profile }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  return jsonResponse(200, { profile });
 };
 
 export const config = {

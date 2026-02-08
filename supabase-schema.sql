@@ -15,7 +15,7 @@ create table if not exists public.profiles (
   updated_at timestamptz default now()
 );
 
--- 1b. Add resume summary columns to profiles (idempotent)
+-- 1b. Add optional profile/subscription columns (idempotent)
 do $$
 begin
   if not exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='resume_hash') then
@@ -27,7 +27,12 @@ begin
   if not exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='resume_updated_at') then
     alter table public.profiles add column resume_updated_at timestamptz;
   end if;
+  if not exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='current_period_end') then
+    alter table public.profiles add column current_period_end timestamptz;
+  end if;
 end $$;
+
+create index if not exists profiles_stripe_customer_id_idx on public.profiles(stripe_customer_id);
 
 -- 2. Create generation_logs table for debugging and support
 create table if not exists public.generation_logs (
@@ -44,20 +49,37 @@ create table if not exists public.generation_logs (
 alter table public.profiles enable row level security;
 alter table public.generation_logs enable row level security;
 
--- 4. RLS policies: users can read their own profile, service role can do everything
+-- 4. RLS policies: least privilege
+drop policy if exists "Users can view own profile" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Users can insert own profile" on public.profiles;
+drop policy if exists "Service role full access profiles" on public.profiles;
+drop policy if exists "Service role only profiles" on public.profiles;
+drop policy if exists "Service role full access logs" on public.generation_logs;
+drop policy if exists "Service role only logs" on public.generation_logs;
+
 create policy "Users can view own profile"
   on public.profiles for select
   using (auth.uid() = id);
 
-create policy "Service role full access profiles"
-  on public.profiles for all
-  using (true)
-  with check (true);
+create policy "Users can update own profile"
+  on public.profiles for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
 
-create policy "Service role full access logs"
+create policy "Users can insert own profile"
+  on public.profiles for insert
+  with check (auth.uid() = id);
+
+create policy "Service role only profiles"
+  on public.profiles for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+create policy "Service role only logs"
   on public.generation_logs for all
-  using (true)
-  with check (true);
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
 
 -- 5. Function to increment generation count
 create or replace function public.increment_generations(p_user_id uuid)
@@ -72,8 +94,9 @@ begin
   returning generations_used into new_count;
   return new_count;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer
+set search_path = public;
 
--- 6. Grant execute on the function
-grant execute on function public.increment_generations(uuid) to authenticated;
+-- 6. Grant execute on the function to server-only role
+revoke execute on function public.increment_generations(uuid) from authenticated;
 grant execute on function public.increment_generations(uuid) to service_role;

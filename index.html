@@ -866,10 +866,10 @@
             </label>
             <div class="pdf-upload">
               <span>&#128196;</span>
-              <input id="resumePdf" type="file" accept="application/pdf,.doc,.docx,.txt" />
-              <span>Upload PDF to auto-summarize</span>
+              <input id="resumePdf" type="file" accept="application/pdf,.pdf" />
+              <span>Upload PDF (max 8MB) to auto-summarize</span>
             </div>
-            <textarea id="resume" placeholder="Or paste your resume text here..." style="margin-top: 8px;"></textarea>
+            <textarea id="resume" placeholder="Upload a resume PDF to populate this field." readonly style="margin-top: 8px;"></textarea>
           </div>
 
           <!-- Job Description (Step 2) -->
@@ -1023,10 +1023,15 @@
     };
     let lastGeneratedText = "";
     let isGenerating = false;
+    let appInitError = "";
+    let localDevMode = false;
+    let resumeLoadedFromPdf = false;
+    const MAX_RESUME_FILE_BYTES = 8 * 1024 * 1024;
 
     const LOCAL_STORAGE_KEYS = {
       resume: "cc_resume",
       job: "cc_job",
+      resumeSource: "cc_resume_source",
     };
 
     // ---- ELEMENTS ----
@@ -1093,6 +1098,23 @@
       setTimeout(function() { el.style.display = "none"; }, 4000);
     }
 
+    function getAppNotReadyMessage() {
+      return appInitError || "App is still loading. Please try again.";
+    }
+
+    function enableLocalDevMode(reason) {
+      localDevMode = true;
+      if (reason) appInitError = reason;
+      els.authStatus.textContent = "Local dev mode";
+      els.navLogin.style.display = "none";
+      els.navSignup.style.display = "none";
+      els.logout.style.display = "none";
+      els.pay.style.display = "none";
+      updateGenCounter();
+      updateGenerateButton();
+      setToast("Local dev mode enabled. Auth and billing are bypassed.", true);
+    }
+
     // ---- CHAR COUNTS ----
     function count(el, outEl) {
       outEl.textContent = (el.value || "").length + " chars";
@@ -1114,7 +1136,8 @@
       clearTimeout(saveTimer);
       saveTimer = setTimeout(function() {
         try {
-          localStorage.setItem(LOCAL_STORAGE_KEYS.resume, els.resume.value);
+          localStorage.setItem(LOCAL_STORAGE_KEYS.resume, resumeLoadedFromPdf ? els.resume.value : "");
+          localStorage.setItem(LOCAL_STORAGE_KEYS.resumeSource, resumeLoadedFromPdf ? "pdf" : "");
           localStorage.setItem(LOCAL_STORAGE_KEYS.job, els.job.value);
         } catch (_) {}
       }, 500);
@@ -1123,9 +1146,11 @@
     function loadSaved() {
       try {
         var savedResume = localStorage.getItem(LOCAL_STORAGE_KEYS.resume);
+        var savedResumeSource = localStorage.getItem(LOCAL_STORAGE_KEYS.resumeSource);
         var savedJob = localStorage.getItem(LOCAL_STORAGE_KEYS.job);
-        if (savedResume) {
+        if (savedResume && savedResumeSource === "pdf") {
           els.resume.value = savedResume;
+          resumeLoadedFromPdf = true;
           count(els.resume, els.resumeCount);
         }
         if (savedJob) {
@@ -1168,6 +1193,12 @@
 
     // ---- GENERATION COUNTER ----
     function updateGenCounter() {
+      if (localDevMode) {
+        els.genCounter.className = "gen-counter pro";
+        els.genCounter.textContent = "Local dev mode (unlimited)";
+        return;
+      }
+
       var used = profileData.generations_used || 0;
       var limit = profileData.free_limit || 3;
       var remaining = Math.max(0, limit - used);
@@ -1185,33 +1216,112 @@
       }
     }
 
+    async function extractPdfText(file) {
+      var arrayBuffer = await file.arrayBuffer();
+      var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      var text = "";
+      for (var i = 1; i <= pdf.numPages; i++) {
+        var page = await pdf.getPage(i);
+        var content = await page.getTextContent();
+        var strings = content.items.map(function(it) { return it.str; });
+        text += strings.join(" ") + "\n\n";
+      }
+      return text.trim();
+    }
+
+    function runLocalGeneration(jobDescription, resumeText, tone) {
+      var resumeSnippet = resumeText.split(/\n+/).map(function(s) { return s.trim(); }).filter(Boolean).slice(0, 6);
+      var jobSnippet = jobDescription.split(/\n+/).map(function(s) { return s.trim(); }).filter(Boolean).slice(0, 4);
+      var primaryRole = (jobSnippet[0] || "this role").replace(/\s+/g, " ").trim();
+
+      var lines = [];
+      lines.push("Dear Hiring Manager,");
+      lines.push("");
+      lines.push("I am excited to apply for " + primaryRole + ".");
+      lines.push("My background aligns well with the role, and I bring a " + tone + " communication style with strong execution.");
+      lines.push("");
+      if (resumeSnippet.length) {
+        lines.push("Highlights from my experience:");
+        for (var i = 0; i < resumeSnippet.length; i++) {
+          lines.push("- " + resumeSnippet[i]);
+        }
+        lines.push("");
+      }
+      if (jobSnippet.length > 1) {
+        lines.push("I am especially interested in your priorities around:");
+        for (var j = 1; j < jobSnippet.length; j++) {
+          lines.push("- " + jobSnippet[j]);
+        }
+        lines.push("");
+      }
+      lines.push("I would value the chance to contribute and discuss how I can support your team.");
+      lines.push("");
+      lines.push("Sincerely,");
+      lines.push("[Your Name]");
+      return lines.join("\n");
+    }
+
+    async function getValidSession() {
+      if (!supabaseClient) return null;
+
+      var sessionRes = await supabaseClient.auth.getSession();
+      var session = sessionRes && sessionRes.data ? sessionRes.data.session : null;
+      if (!session) return null;
+
+      var expiresAt = (session.expires_at || 0) * 1000;
+      if (expiresAt && (expiresAt - Date.now()) < 60000) {
+        var refreshRes = await supabaseClient.auth.refreshSession();
+        return refreshRes && refreshRes.data ? refreshRes.data.session : null;
+      }
+      return session;
+    }
+
     // ---- PDF UPLOAD + AI SUMMARY ----
     els.resumePdf.addEventListener("change", async function(e) {
       var file = e.target.files && e.target.files[0];
       if (!file) return;
+      if (file.size > MAX_RESUME_FILE_BYTES) {
+        setToast("File is too large. Max size is 8MB.");
+        els.resumePdf.value = "";
+        return;
+      }
+      var fileType = (file.type || "").toLowerCase();
+      var fileName = (file.name || "").toLowerCase();
+      if (fileType !== "application/pdf" && !fileName.endsWith(".pdf")) {
+        setToast("Only PDF files are supported.");
+        els.resumePdf.value = "";
+        return;
+      }
 
       // Check auth - need a session to call the server endpoint
       if (!supabaseClient) {
-        setToast("App is still loading. Please try again.");
+        if (localDevMode) {
+          try {
+            els.status.textContent = "Reading PDF...";
+            els.resume.value = await extractPdfText(file);
+            resumeLoadedFromPdf = true;
+            count(els.resume, els.resumeCount);
+            updateSteps();
+            autoSave();
+            els.status.textContent = "Ready";
+            setToast("Resume imported (local mode).", true);
+            setTimeout(function() { els.job.focus(); }, 300);
+          } catch (_) {
+            els.status.textContent = "Error";
+            setToast("PDF read failed. Try a different PDF.");
+          }
+          return;
+        }
+        setToast(getAppNotReadyMessage());
         return;
       }
-      var sessionResult = await supabaseClient.auth.getSession();
-      var session = sessionResult.data.session;
+      var session = await getValidSession();
       if (!session) {
         // Fall back to client-side text extraction if not logged in
         try {
           els.status.textContent = "Reading PDF...";
-          var arrayBuffer = await file.arrayBuffer();
-          var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          var text = "";
-          for (var i = 1; i <= pdf.numPages; i++) {
-            var page = await pdf.getPage(i);
-            var content = await page.getTextContent();
-            var strings = content.items.map(function(it) { return it.str; });
-            text += strings.join(" ") + "\n\n";
-          }
-          text = text.trim();
-          els.resume.value = text;
+          els.resume.value = await extractPdfText(file);
+          resumeLoadedFromPdf = true;
           count(els.resume, els.resumeCount);
           updateSteps();
           autoSave();
@@ -1220,7 +1330,7 @@
           setTimeout(function() { els.job.focus(); }, 300);
         } catch (err) {
           els.status.textContent = "Error";
-          setToast("PDF read failed. Try a different file or paste manually.");
+          setToast("PDF read failed. Try a different PDF.");
         }
         return;
       }
@@ -1246,10 +1356,10 @@
         if (!res.ok) {
           if (data.error === "scanned_pdf") {
             els.status.textContent = "Scanned PDF";
-            setToast(data.message || "This looks like a scanned PDF. Upload a text-based PDF or paste your resume.");
+            setToast(data.message || "This looks like a scanned PDF. Upload a text-based PDF.");
           } else {
             els.status.textContent = "Error";
-            setToast(data.error || data.message || "PDF upload failed. Try a different file or paste manually.");
+            setToast(data.error || data.message || "PDF upload failed. Try a different PDF.");
           }
           els.resumePdf.disabled = false;
           return;
@@ -1262,6 +1372,7 @@
         }
 
         els.resume.value = data.summary || "";
+        resumeLoadedFromPdf = true;
         count(els.resume, els.resumeCount);
         updateSteps();
         autoSave();
@@ -1278,7 +1389,7 @@
         setTimeout(function() { els.job.focus(); }, 300);
       } catch (err) {
         els.status.textContent = "Error";
-        setToast("PDF upload failed. Try a different file or paste manually.");
+        setToast("PDF upload failed. Try a different PDF.");
       } finally {
         els.resumePdf.disabled = false;
       }
@@ -1309,7 +1420,7 @@
     };
 
     els.emailSubmit.onclick = async function() {
-      if (!supabaseClient) return setModalToast(els.emailModalToast, "App is still loading.");
+      if (!supabaseClient) return setModalToast(els.emailModalToast, getAppNotReadyMessage());
       var email = (els.emailInput.value || "").trim();
       if (!email || email.indexOf("@") === -1) return setModalToast(els.emailModalToast, "Enter a valid email address.");
 
@@ -1401,7 +1512,7 @@
     els.navSignup.onclick = function() { openLoginModal("signup"); };
 
     els.modalLoginBtn.onclick = async function() {
-      if (!supabaseClient) return setModalToast(els.modalToast, "App is still loading.");
+      if (!supabaseClient) return setModalToast(els.modalToast, getAppNotReadyMessage());
       var email = (els.modalEmail.value || "").trim();
       var password = els.modalPassword.value || "";
       if (!email || !password) return setModalToast(els.modalToast, "Enter email and password.");
@@ -1421,7 +1532,7 @@
     };
 
     els.modalSignupBtn.onclick = async function() {
-      if (!supabaseClient) return setModalToast(els.modalToast, "App is still loading.");
+      if (!supabaseClient) return setModalToast(els.modalToast, getAppNotReadyMessage());
       var email = (els.modalEmail.value || "").trim();
       var password = els.modalPassword.value || "";
       if (!email || !password) return setModalToast(els.modalToast, "Enter email and password.");
@@ -1444,8 +1555,7 @@
     // ---- AUTH UI ----
     async function refreshAuthUI() {
       if (!supabaseClient) return;
-      var sessionResult = await supabaseClient.auth.getSession();
-      var session = sessionResult.data.session;
+      var session = await getValidSession();
       var loggedIn = !!(session && session.user);
       currentUser = loggedIn ? session.user : null;
 
@@ -1502,9 +1612,12 @@
 
     // ---- STRIPE CHECKOUT ----
     async function startCheckout() {
+      if (localDevMode) {
+        setToast("Checkout disabled in local dev mode.");
+        return;
+      }
       if (!supabaseClient) return;
-      var sessionResult = await supabaseClient.auth.getSession();
-      var session = sessionResult.data.session;
+      var session = await getValidSession();
       if (!session) {
         openEmailModal();
         return;
@@ -1527,19 +1640,18 @@
 
     // ---- SAMPLE DATA ----
     els.sample.onclick = function() {
-      els.resume.value = "Frontend engineer with 4+ years building React apps, improving conversion and performance. Recently led a redesign that increased signups by 18% and reduced load times by 35%. Strong collaboration with design/product, and comfortable integrating APIs.";
       els.job.value = "We're hiring a Frontend Engineer to build polished, user-friendly experiences. You'll work with product and design to ship fast, care about accessibility, and communicate clearly. Bonus: experience with APIs and performance tuning.";
       count(els.job, els.jobCount);
-      count(els.resume, els.resumeCount);
       updateSteps();
       autoSave();
-      setToast("Sample data loaded. Hit Generate.", true);
+      setToast("Sample job description loaded. Upload a resume PDF to continue.", true);
     };
 
     // ---- CLEAR ----
     els.clear.onclick = function() {
       els.job.value = "";
       els.resume.value = "";
+      resumeLoadedFromPdf = false;
       els.output.textContent = "Your generated cover letter will appear here.";
       els.status.textContent = "Ready";
       els.outputWrap.classList.remove("locked");
@@ -1596,9 +1708,9 @@
       var resumeText = els.resume.value.trim();
       var tone = els.tone.value;
 
-      if (!resumeText) {
-        setToast("Upload or paste your resume first.");
-        els.resume.focus();
+      if (!resumeText || !resumeLoadedFromPdf) {
+        setToast("Upload your resume PDF first.");
+        els.resumePdf.focus();
         return;
       }
 
@@ -1608,23 +1720,25 @@
         return;
       }
 
-      // If not logged in, show email modal for invisible account creation
-      if (!supabaseClient) return setToast("App is still loading.");
-      var sessionResult = await supabaseClient.auth.getSession();
-      var session = sessionResult.data.session;
-      if (!session) {
-        pendingGenerateAfterAuth = true;
-        openEmailModal();
-        return;
-      }
+      var session = null;
+      if (!localDevMode) {
+        // If not logged in, show email modal for invisible account creation
+        if (!supabaseClient) return setToast(getAppNotReadyMessage());
+        session = await getValidSession();
+        if (!session) {
+          pendingGenerateAfterAuth = true;
+          openEmailModal();
+          return;
+        }
 
-      // Pre-check free limit (server enforces too)
-      var isPro = profileData.is_pro && profileData.subscription_status === "active";
-      var freeRemaining = Math.max(0, (profileData.free_limit || 3) - (profileData.generations_used || 0));
-      if (!isPro && freeRemaining <= 0) {
-        setToast("You've used all free generations. Upgrade for unlimited access.");
-        startCheckout();
-        return;
+        // Pre-check free limit (server enforces too)
+        var isPro = profileData.is_pro && profileData.subscription_status === "active";
+        var freeRemaining = Math.max(0, (profileData.free_limit || 3) - (profileData.generations_used || 0));
+        if (!isPro && freeRemaining <= 0) {
+          setToast("You've used all free generations. Upgrade for unlimited access.");
+          startCheckout();
+          return;
+        }
       }
 
       // Start generation
@@ -1637,21 +1751,27 @@
       els.outputWrap.classList.remove("locked");
 
       try {
-        var r = await fetch("/api/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + session.access_token,
-          },
-          body: JSON.stringify({ jobDescription: jobDescription, resume: resumeText, tone: tone }),
-        });
-
-        var data = await r.json();
+        var data;
+        var r;
+        if (localDevMode) {
+          await new Promise(function(resolve) { setTimeout(resolve, 400); });
+          data = { text: runLocalGeneration(jobDescription, resumeText, tone), locked: false };
+        } else {
+          r = await fetch("/api/generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + session.access_token,
+            },
+            body: JSON.stringify({ jobDescription: jobDescription, resume: resumeText, tone: tone }),
+          });
+          data = await r.json();
+        }
 
         els.loadingState.classList.remove("active");
         els.output.style.display = "";
 
-        if (!r.ok) {
+        if (r && !r.ok) {
           if (r.status === 403 && data.error === "limit_reached") {
             profileData.generations_used = data.generations_used || profileData.generations_used;
             updateGenCounter();
@@ -1684,10 +1804,10 @@
           lastGeneratedText = fullText;
           els.output.textContent = lastGeneratedText || "No output returned.";
           els.outputWrap.classList.remove("locked");
-          els.status.textContent = "Done";
+          els.status.textContent = localDevMode ? "Done (Local)" : "Done";
         }
 
-        setToast("Cover letter generated!", true);
+        setToast(localDevMode ? "Cover letter generated in local dev mode." : "Cover letter generated!", true);
       } catch (e) {
         els.loadingState.classList.remove("active");
         els.output.style.display = "";
@@ -1722,18 +1842,22 @@
       loadSaved();
       updateSteps();
 
-      // Auto-focus resume if empty
+      // Auto-focus resume PDF uploader if resume is empty
       if (!els.resume.value.trim()) {
-        setTimeout(function() { els.resume.focus(); }, 200);
+        setTimeout(function() { els.resumePdf.focus(); }, 200);
       }
 
       try {
         var configRes = await fetch("/api/config");
+        if (!configRes.ok) {
+          throw new Error("`/api/config` is unavailable. Run with `netlify dev` so functions are served.");
+        }
         var cfg = await configRes.json();
 
         if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
-          console.warn("Supabase not configured.");
-          updateGenCounter();
+          appInitError = "Supabase is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in Netlify env vars.";
+          console.warn(appInitError);
+          enableLocalDevMode(appInitError);
           return;
         }
 
@@ -1741,8 +1865,11 @@
         supabaseClient.auth.onAuthStateChange(function() { refreshAuthUI(); });
         await refreshAuthUI();
       } catch (err) {
+        appInitError = err && err.message
+          ? err.message
+          : "App failed to initialize. Check `/api/config` and Netlify function logs.";
         console.error("Failed to load app config:", err);
-        updateGenCounter();
+        enableLocalDevMode(appInitError);
       }
     })();
   </script>

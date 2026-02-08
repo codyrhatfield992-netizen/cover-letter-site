@@ -1,8 +1,11 @@
 import { getAuthenticatedUser, getSupabaseAdmin } from "./shared/supabase.mjs";
 import pdfParse from "pdf-parse";
+import { getEnv } from "./shared/env.mjs";
+import { jsonResponse, optionsResponse } from "./shared/http.mjs";
 
 const SCANNED_THRESHOLD = 200;
 const MAX_SUMMARY_CHARS = 900;
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 function computeHash(text) {
   // Simple hash using Web Crypto-compatible approach
@@ -31,23 +34,17 @@ ${resumeText}`;
 
 export default async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204 });
+    return optionsResponse();
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(405, { error: "Method not allowed" });
   }
 
   // 1. Require authentication
   const user = await getAuthenticatedUser(req);
   if (!user) {
-    return new Response(JSON.stringify({ error: "Not authenticated" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(401, { error: "Not authenticated" });
   }
 
   // 2. Parse the multipart form data to get the PDF file
@@ -55,18 +52,21 @@ export default async (req) => {
   try {
     formData = await req.formData();
   } catch (_) {
-    return new Response(JSON.stringify({ error: "Invalid form data" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(400, { error: "Invalid form data" });
   }
 
   const file = formData.get("resume");
   if (!file || typeof file === "string") {
-    return new Response(JSON.stringify({ error: "No PDF file provided" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(400, { error: "No PDF file provided" });
+  }
+
+  const fileName = (file.name || "").toLowerCase();
+  const isPdfType = (file.type || "").toLowerCase() === "application/pdf" || fileName.endsWith(".pdf");
+  if (!isPdfType) {
+    return jsonResponse(400, { error: "Only PDF files are supported." });
+  }
+  if (typeof file.size === "number" && file.size > MAX_FILE_BYTES) {
+    return jsonResponse(413, { error: "File is too large. Max size is 8MB." });
   }
 
   // 3. Extract text from PDF
@@ -76,21 +76,15 @@ export default async (req) => {
     const parsed = await pdfParse(buffer);
     extractedText = (parsed.text || "").trim();
   } catch (err) {
-    return new Response(
-      JSON.stringify({ error: "Failed to read PDF. Try a different file or paste your resume manually." }),
-      { status: 422, headers: { "Content-Type": "application/json" } }
-    );
+    return jsonResponse(422, { error: "Failed to read PDF. Try a different file or paste your resume manually." });
   }
 
   // 4. Detect scanned/image PDFs
   if (extractedText.length < SCANNED_THRESHOLD) {
-    return new Response(
-      JSON.stringify({
-        error: "scanned_pdf",
-        message: "This looks like a scanned PDF. Upload a text-based PDF or paste your resume.",
-      }),
-      { status: 422, headers: { "Content-Type": "application/json" } }
-    );
+    return jsonResponse(422, {
+      error: "scanned_pdf",
+      message: "This looks like a scanned PDF. Upload a text-based PDF or paste your resume.",
+    });
   }
 
   // 5. Compute hash and check for existing summary
@@ -105,19 +99,14 @@ export default async (req) => {
 
   // If same hash exists, reuse the stored summary
   if (profile && profile.resume_hash === resumeHash && profile.resume_summary) {
-    return new Response(
-      JSON.stringify({
-        summary: profile.resume_summary,
-        cached: true,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    return jsonResponse(200, {
+      summary: profile.resume_summary,
+      cached: true,
+    });
   }
 
   // 6. Call AI to summarize the resume
-  const backendUrl =
-    Netlify.env.get("BACKEND_URL") ||
-    "https://cover-letter-api-production-fe17.up.railway.app";
+  const backendUrl = getEnv("BACKEND_URL", "https://cover-letter-api-production-fe17.up.railway.app");
 
   let summary;
   try {
@@ -136,14 +125,11 @@ export default async (req) => {
 
     if (!aiRes.ok) {
       // Fallback: return the raw extracted text if AI fails
-      return new Response(
-        JSON.stringify({
-          summary: extractedText.substring(0, MAX_SUMMARY_CHARS),
-          raw: true,
-          message: "AI summary unavailable. Raw text extracted instead.",
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
+      return jsonResponse(200, {
+        summary: extractedText.substring(0, MAX_SUMMARY_CHARS),
+        raw: true,
+        message: "AI summary unavailable. Raw text extracted instead.",
+      });
     }
 
     summary = (aiData.text || "").trim();
@@ -152,14 +138,11 @@ export default async (req) => {
     }
   } catch (err) {
     // Fallback: return raw text if backend is unreachable
-    return new Response(
-      JSON.stringify({
-        summary: extractedText.substring(0, MAX_SUMMARY_CHARS),
-        raw: true,
-        message: "AI summary unavailable. Raw text extracted instead.",
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    return jsonResponse(200, {
+      summary: extractedText.substring(0, MAX_SUMMARY_CHARS),
+      raw: true,
+      message: "AI summary unavailable. Raw text extracted instead.",
+    });
   }
 
   // 7. Store hash + summary in profiles
@@ -174,13 +157,10 @@ export default async (req) => {
     .eq("id", user.id)
     .catch(() => {});
 
-  return new Response(
-    JSON.stringify({
-      summary: summary,
-      cached: false,
-    }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
-  );
+  return jsonResponse(200, {
+    summary: summary,
+    cached: false,
+  });
 };
 
 export const config = {

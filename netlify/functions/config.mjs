@@ -1,16 +1,13 @@
+import { getEnv } from "./shared/env.mjs";
+import { jsonResponse } from "./shared/http.mjs";
+
 export default async () => {
   const config = {
-    supabaseUrl: process.env.SUPABASE_URL || "",
-supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+    supabaseUrl: getEnv("SUPABASE_URL"),
+    supabaseAnonKey: getEnv("SUPABASE_ANON_KEY"),
   };
 
-  return new Response(JSON.stringify(config), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=3600",
-    },
-  });
+  return jsonResponse(200, config, { "Cache-Control": "public, max-age=300" });
 };
 
 export const config = {

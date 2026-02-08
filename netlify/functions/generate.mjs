@@ -1,24 +1,20 @@
 import { getAuthenticatedUser, getSupabaseAdmin, getFreeLimit } from "./shared/supabase.mjs";
+import { getEnv } from "./shared/env.mjs";
+import { jsonResponse, optionsResponse } from "./shared/http.mjs";
 
 export default async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204 });
+    return optionsResponse();
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(405, { error: "Method not allowed" });
   }
 
   // 1. Require authentication
   const user = await getAuthenticatedUser(req);
   if (!user) {
-    return new Response(JSON.stringify({ error: "Not authenticated" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(401, { error: "Not authenticated" });
   }
 
   // 2. Fetch profile to check subscription and generation count
@@ -45,15 +41,12 @@ export default async (req) => {
       error_message: "Free limit exhausted, no active subscription",
     }).catch(() => {});
 
-    return new Response(
-      JSON.stringify({
-        error: "limit_reached",
-        message: "You've used all 3 free generations. Upgrade for unlimited access.",
-        generations_used: generationsUsed,
-        free_limit: freeLimit,
-      }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
-    );
+    return jsonResponse(403, {
+      error: "limit_reached",
+      message: "You've used all 3 free generations. Upgrade for unlimited access.",
+      generations_used: generationsUsed,
+      free_limit: freeLimit,
+    });
   }
 
   // 4. Parse request body
@@ -61,24 +54,16 @@ export default async (req) => {
   try {
     body = await req.json();
   } catch (_) {
-    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(400, { error: "Invalid JSON body" });
   }
 
   const { jobDescription, resume, tone } = body;
   if (!jobDescription || !resume) {
-    return new Response(
-      JSON.stringify({ error: "Job description and resume are required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+    return jsonResponse(400, { error: "Job description and resume are required" });
   }
 
   // 5. Run generation against the backend
- const backendUrl =
-  process.env.BACKEND_URL ||
-  "https://cover-letter-api-production-fe17.up.railway.app";
+  const backendUrl = getEnv("BACKEND_URL", "https://cover-letter-api-production-fe17.up.railway.app");
 
   try {
     const backendRes = await fetch(`${backendUrl}/generate`, {
@@ -99,13 +84,7 @@ export default async (req) => {
         error_message: data.error || "Backend generation failed",
       }).catch(() => {});
 
-      return new Response(
-        JSON.stringify({ error: data.error || "Generation failed" }),
-        {
-          status: backendRes.status,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      return jsonResponse(backendRes.status, { error: data.error || "Generation failed" });
     }
 
     // 6. Increment generation count
@@ -126,30 +105,20 @@ export default async (req) => {
 
     const fullText = (data.text || "").trim();
 
-    // 8. Determine access level
-    // If subscribed: return full text
-    // If free tier: return full text (they still have free generations)
+    // 8. Determine access level.
+    // At this point, free-tier users are still within their allowed generations,
+    // so successful responses should return full access.
+    const freeRemainingAfterGeneration = Math.max(0, freeLimit - newCount);
     const responsePayload = {
       text: fullText,
-      full_access: isSubscribed,
+      full_access: true,
       generations_used: newCount,
       free_limit: freeLimit,
-      free_remaining: isSubscribed ? null : Math.max(0, freeLimit - newCount),
+      free_remaining: isSubscribed ? null : freeRemainingAfterGeneration,
+      locked: false,
     };
 
-    // If NOT subscribed, only send a preview (first ~4 lines) + signal to paywall
-    if (!isSubscribed) {
-      const lines = fullText.split("\n");
-      const previewLines = lines.slice(0, 4).join("\n");
-      responsePayload.preview = previewLines;
-      responsePayload.text = fullText; // still send full text; frontend controls unlock
-      responsePayload.locked = true;
-    }
-
-    return new Response(JSON.stringify(responsePayload), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(200, responsePayload);
   } catch (err) {
     // Log error
     await supabase.from("generation_logs").insert({
@@ -160,10 +129,7 @@ export default async (req) => {
       error_message: "Backend unavailable: " + err.message,
     }).catch(() => {});
 
-    return new Response(
-      JSON.stringify({ error: "Backend unavailable: " + err.message }),
-      { status: 502, headers: { "Content-Type": "application/json" } }
-    );
+    return jsonResponse(502, { error: "Backend unavailable: " + err.message });
   }
 };
 

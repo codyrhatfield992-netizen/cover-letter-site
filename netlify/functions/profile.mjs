@@ -1,23 +1,18 @@
 import { getAuthenticatedUser, getSupabaseAdmin, getFreeLimit } from "./shared/supabase.mjs";
+import { jsonResponse, optionsResponse } from "./shared/http.mjs";
 
 export default async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204 });
+    return optionsResponse();
   }
 
   if (req.method !== "GET") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(405, { error: "Method not allowed" });
   }
 
   const user = await getAuthenticatedUser(req);
   if (!user) {
-    return new Response(JSON.stringify({ error: "Not authenticated" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(401, { error: "Not authenticated" });
   }
 
   const supabase = getSupabaseAdmin();
@@ -28,31 +23,22 @@ export default async (req) => {
     .single();
 
   if (error || !profile) {
-    return new Response(
-      JSON.stringify({
-        profile: {
-          is_pro: false,
-          subscription_status: "none",
-          generations_used: 0,
-          free_limit: getFreeLimit(),
-        },
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  return new Response(
-    JSON.stringify({
+    return jsonResponse(200, {
       profile: {
-        ...profile,
+        is_pro: false,
+        subscription_status: "none",
+        generations_used: 0,
         free_limit: getFreeLimit(),
       },
-    }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    }
-  );
+    });
+  }
+
+  return jsonResponse(200, {
+    profile: {
+      ...profile,
+      free_limit: getFreeLimit(),
+    },
+  });
 };
 
 export const config = {

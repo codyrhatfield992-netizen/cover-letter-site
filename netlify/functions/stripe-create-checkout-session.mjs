@@ -1,48 +1,53 @@
 import Stripe from "stripe";
-import { getAuthenticatedUser, getSupabaseAdmin, getEnv } from "./shared/supabase.mjs";
-
-function corsHeaders(req) {
-  const origin = req.headers.get("origin") || "*";
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "authorization, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Credentials": "true",
-    "Vary": "Origin",
-  };
-}
-
-function json(req, status, payload) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(req) },
-  });
-}
+import { getAuthenticatedUser, getSupabaseAdmin } from "./shared/supabase.mjs";
+import { getEnv } from "./shared/env.mjs";
+import { jsonResponse, optionsResponse } from "./shared/http.mjs";
 
 export default async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
-  if (req.method !== "POST") return json(req, 405, { error: "Method not allowed" });
-
-  const user = await getAuthenticatedUser(req);
-  if (!user) return json(req, 401, { error: "Not authenticated" });
-
-  const stripeSecretKey = getEnv("STRIPE_SECRET_KEY", "");
-  const priceId = getEnv("STRIPE_PRICE_ID", "");
-  const siteUrl = getEnv("URL", "") || getEnv("SITE_URL", "");
-
-  if (!stripeSecretKey) return json(req, 500, { error: "Stripe is not configured (STRIPE_SECRET_KEY missing)" });
-  if (!priceId) return json(req, 500, { error: "Stripe is not configured (STRIPE_PRICE_ID missing)" });
-  if (!siteUrl) return json(req, 500, { error: "Site URL is not configured (URL or SITE_URL missing)" });
-
-  const stripe = new Stripe(stripeSecretKey);
-
-  let supabase;
-  try {
-    supabase = getSupabaseAdmin();
-  } catch (e) {
-    return json(req, 500, { error: e.message });
+  if (req.method === "OPTIONS") {
+    return optionsResponse();
   }
 
+  if (req.method !== "POST") {
+    return jsonResponse(405, { error: "Method not allowed" });
+  }
+
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return jsonResponse(401, { error: "Not authenticated" });
+  }
+
+  const paymentLinkUrl = getEnv("STRIPE_PAYMENT_LINK");
+  if (paymentLinkUrl) {
+    try {
+      const url = new URL(paymentLinkUrl);
+      url.searchParams.set("client_reference_id", user.id);
+      if (user.email) {
+        url.searchParams.set("prefilled_email", user.email);
+      }
+      return jsonResponse(200, { url: url.toString() });
+    } catch (_) {
+      return jsonResponse(200, { url: paymentLinkUrl });
+    }
+  }
+
+  const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
+  if (!stripeSecretKey) {
+    return jsonResponse(500, { error: "Missing STRIPE_SECRET_KEY (or set STRIPE_PAYMENT_LINK)" });
+  }
+
+  const stripe = new Stripe(stripeSecretKey);
+  const priceId = getEnv("STRIPE_PRICE_ID");
+  if (!priceId) {
+    return jsonResponse(500, { error: "Missing STRIPE_PRICE_ID (or set STRIPE_PAYMENT_LINK)" });
+  }
+  const siteUrl = getEnv("SITE_URL") || getEnv("URL") || req.headers.get("origin") || "";
+  if (!siteUrl) {
+    return jsonResponse(500, { error: "Missing SITE_URL/URL for Stripe redirect URLs" });
+  }
+
+  // Check if user already has a Stripe customer ID
+  const supabase = getSupabaseAdmin();
   const { data: profile } = await supabase
     .from("profiles")
     .select("stripe_customer_id")
@@ -51,22 +56,29 @@ export default async (req) => {
 
   const sessionParams = {
     mode: "subscription",
+    payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
     client_reference_id: user.id,
     metadata: { user_id: user.id },
-    success_url: `${siteUrl.replace(/\/$/, "")}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${siteUrl.replace(/\/$/, "")}/`,
+    success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${siteUrl}/`,
   };
 
-  if (profile?.stripe_customer_id) sessionParams.customer = profile.stripe_customer_id;
-  else sessionParams.customer_email = user.email;
+  // Reuse existing Stripe customer if available
+  if (profile?.stripe_customer_id) {
+    sessionParams.customer = profile.stripe_customer_id;
+  } else {
+    sessionParams.customer_email = user.email;
+  }
 
   try {
     const session = await stripe.checkout.sessions.create(sessionParams);
-    return json(req, 200, { url: session.url });
+    return jsonResponse(200, { url: session.url });
   } catch (err) {
-    return json(req, 500, { error: err.message });
+    return jsonResponse(500, { error: err.message });
   }
 };
 
-export const config = { path: "/api/stripe/create-checkout-session" };
+export const config = {
+  path: "/api/stripe/create-checkout-session",
+};
