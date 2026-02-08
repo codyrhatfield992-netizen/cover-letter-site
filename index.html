@@ -1192,9 +1192,9 @@
 
       // Check auth - need a session to call the server endpoint
       if (!supabaseClient) {
-        setToast("App is still loading. Please try again.");
-        return;
-      }
+  setToast("Supabase isn't configured (or /api/config failed). Check /api/config and Netlify env vars.");
+  return;
+}
       var sessionResult = await supabaseClient.auth.getSession();
       var session = sessionResult.data.session;
       if (!session) {
