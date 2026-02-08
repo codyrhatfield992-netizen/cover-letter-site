@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js"></script>
+  <script src="/assets/pdf.min.js"></script>
 
   <style>
     :root {
@@ -1020,6 +1020,7 @@
     async function ensurePdfLibLoaded() {
       if (window.pdfjsLib && pdfjsLib.getDocument) return true;
       var sources = [
+        "/assets/pdf.min.js",
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js",
         "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.js"
       ];
@@ -1034,8 +1035,7 @@
 
     // PDF.js worker
     if (window.pdfjsLib?.GlobalWorkerOptions) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.js";
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "/assets/pdf.worker.min.js";
     }
 
     // ---- STATE ----
