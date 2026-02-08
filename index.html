@@ -1483,7 +1483,11 @@
       els.emailSubmit.textContent = "Creating account...";
 
       var autoPassword = crypto.randomUUID();
-      var result = await supabaseClient.auth.signUp({ email: email, password: autoPassword });
+      var result = await supabaseClient.auth.signUp({
+        email: email,
+        password: autoPassword,
+        options: { emailRedirectTo: window.location.origin }
+      });
 
       if (result.error) {
         if (result.error.message.toLowerCase().indexOf("already") !== -1 || result.error.status === 422) {
@@ -1594,7 +1598,11 @@
       if (password.length < 6) return setModalToast(els.modalToast, "Password must be at least 6 characters.");
       els.modalSignupBtn.disabled = true;
       els.modalSignupBtn.textContent = "Creating account...";
-      var result = await supabaseClient.auth.signUp({ email: email, password: password });
+      var result = await supabaseClient.auth.signUp({
+        email: email,
+        password: password,
+        options: { emailRedirectTo: window.location.origin }
+      });
       els.modalSignupBtn.disabled = false;
       els.modalSignupBtn.textContent = "Create account";
       if (result.error) return setModalToast(els.modalToast, result.error.message);
