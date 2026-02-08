@@ -1052,6 +1052,7 @@
     let appInitError = "";
     let localDevMode = false;
     let resumeLoadedFromPdf = false;
+    let lastResumeUploadError = "";
     const MAX_RESUME_FILE_BYTES = 8 * 1024 * 1024;
 
     const LOCAL_STORAGE_KEYS = {
@@ -1337,6 +1338,7 @@
             els.status.textContent = "Reading PDF...";
             els.resume.value = await extractPdfText(file);
             resumeLoadedFromPdf = true;
+            lastResumeUploadError = "";
             count(els.resume, els.resumeCount);
             updateSteps();
             autoSave();
@@ -1346,7 +1348,8 @@
           } catch (_) {
             els.status.textContent = "Error";
             console.error("PDF read failed (local mode):", _);
-            setToast("PDF read failed: " + ((_.message || "unknown error")));
+            lastResumeUploadError = "PDF read failed: " + ((_.message || "unknown error"));
+            setToast(lastResumeUploadError);
           }
           return;
         }
@@ -1360,6 +1363,7 @@
           els.status.textContent = "Reading PDF...";
           els.resume.value = await extractPdfText(file);
           resumeLoadedFromPdf = true;
+          lastResumeUploadError = "";
           count(els.resume, els.resumeCount);
           updateSteps();
           autoSave();
@@ -1369,7 +1373,8 @@
         } catch (err) {
           els.status.textContent = "Error";
           console.error("PDF read failed (no session):", err);
-          setToast("PDF read failed: " + ((err && err.message) || "unknown error"));
+          lastResumeUploadError = "PDF read failed: " + ((err && err.message) || "unknown error");
+          setToast(lastResumeUploadError);
         }
         return;
       }
@@ -1395,10 +1400,12 @@
         if (!res.ok) {
           if (data.error === "scanned_pdf") {
             els.status.textContent = "Scanned PDF";
-            setToast(data.message || "This looks like a scanned PDF. Upload a text-based PDF.");
+            lastResumeUploadError = data.message || "This looks like a scanned PDF. Upload a text-based PDF.";
+            setToast(lastResumeUploadError);
           } else {
             els.status.textContent = "Error";
-            setToast(data.error || data.message || "PDF upload failed. Try a different PDF.");
+            lastResumeUploadError = data.error || data.message || "PDF upload failed. Try a different PDF.";
+            setToast(lastResumeUploadError);
           }
           els.resumePdf.disabled = false;
           return;
@@ -1412,6 +1419,7 @@
 
         els.resume.value = data.summary || "";
         resumeLoadedFromPdf = true;
+        lastResumeUploadError = "";
         count(els.resume, els.resumeCount);
         updateSteps();
         autoSave();
@@ -1429,7 +1437,8 @@
       } catch (err) {
         els.status.textContent = "Error";
         console.error("PDF upload failed:", err);
-        setToast("PDF upload failed: " + ((err && err.message) || "unknown error"));
+        lastResumeUploadError = "PDF upload failed: " + ((err && err.message) || "unknown error");
+        setToast(lastResumeUploadError);
       } finally {
         els.resumePdf.disabled = false;
       }
@@ -1692,6 +1701,7 @@
       els.job.value = "";
       els.resume.value = "";
       resumeLoadedFromPdf = false;
+      lastResumeUploadError = "";
       els.output.textContent = "Your generated cover letter will appear here.";
       els.status.textContent = "Ready";
       els.outputWrap.classList.remove("locked");
@@ -1749,7 +1759,7 @@
       var tone = els.tone.value;
 
       if (!resumeText || !resumeLoadedFromPdf) {
-        setToast("Upload your resume PDF first.");
+        setToast(lastResumeUploadError || "Upload your resume PDF first.");
         els.resumePdf.focus();
         return;
       }
