@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cover Letter Generator</title>
   <meta name="description" content="Generate a tailored cover letter from a job description + your resume." />
+
+  <!-- Supabase + PDF.js -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js"></script>
+
   <style>
     :root{
       --bg: #0b1020;
@@ -21,14 +24,6 @@
     }
     *{ box-sizing:border-box; }
     body{
-      <div class="row" style="margin-top:10px;">
-  <input id="email" placeholder="Email" style="flex:1; min-width:220px; padding:10px 12px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text);" />
-  <input id="password" type="password" placeholder="Password" style="flex:1; min-width:220px; padding:10px 12px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text);" />
-  <button class="btn" id="signup">Sign up</button>
-  <button class="btn" id="login">Log in</button>
-  <button class="btn ghost" id="logout" style="display:none;">Log out</button>
-</div>
-<div class="muted" id="authStatus" style="margin-top:8px;">Please sign up or log in to generate.</div>
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
       color: var(--text);
@@ -136,13 +131,8 @@
       color: #071018;
       box-shadow: 0 10px 30px rgba(99,102,241,.25);
     }
-    .btn.ghost{
-      background: transparent;
-    }
-    .btn:disabled{
-      opacity: .55;
-      cursor:not-allowed;
-    }
+    .btn.ghost{ background: transparent; }
+    .btn:disabled{ opacity: .55; cursor:not-allowed; }
     .right{
       display:flex; justify-content:flex-end; gap:10px; margin-left:auto;
     }
@@ -159,7 +149,6 @@
     }
     .stat b{ display:block; font-size: 14px; margin-bottom: 4px; }
     .stat span{ color: var(--muted); font-size: 12px; }
-
     .out{
       margin-top: 14px;
       padding: 14px;
@@ -199,13 +188,47 @@
       background: rgba(255,255,255,.04);
     }
     .badge strong{ color: var(--text); font-weight: 800; }
+
+    /* small auth input style helper */
+    .auth-input{
+      flex:1; min-width:220px;
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      outline: none;
+    }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="topbar">
       <div class="brand"><span class="dot"></span> Cover Letter Generator</div>
       <div class="pill">Static Netlify • API on Railway • Stripe Payment Link</div>
+    </div>
+
+    <!-- ✅ AUTH UI (MOVED OUT OF CSS) -->
+    <div class="card">
+      <div class="card-inner">
+        <div class="row" style="margin-top:0;">
+          <input id="email" class="auth-input" placeholder="Email" autocomplete="email" />
+          <input id="password" class="auth-input" type="password" placeholder="Password" autocomplete="current-password" />
+          <button class="btn" id="signup" type="button">Sign up</button>
+          <button class="btn" id="login" type="button">Log in</button>
+          <button class="btn ghost" id="logout" type="button" style="display:none;">Log out</button>
+
+          <div class="right" style="margin-left:auto;">
+            <a id="pay" class="btn primary" href="#" role="button">Unlock / Pay with Stripe →</a>
+          </div>
+        </div>
+
+        <div class="muted" id="authStatus" style="margin-top:8px;">
+          Please sign up or log in to generate.
+        </div>
+        <div id="toast" class="toast"></div>
+      </div>
     </div>
 
     <div class="hero">
@@ -228,16 +251,18 @@
               </label>
               <textarea id="job" placeholder="Paste the job description here..."></textarea>
             </div>
-<div class="row" style="margin-top:8px;">
-  <input id="resumePdf" type="file" accept="application/pdf" />
-  <span class="muted">PDF will auto-fill the resume box.</span>
-</div>
+
             <div>
               <label>
                 <span><b>Your resume</b></span>
                 <span id="resumeCount">0 chars</span>
               </label>
               <textarea id="resume" placeholder="Paste your resume here..."></textarea>
+
+              <div class="row" style="margin-top:8px;">
+                <input id="resumePdf" type="file" accept="application/pdf" />
+                <span class="muted">PDF will auto-fill the resume box.</span>
+              </div>
             </div>
           </div>
 
@@ -250,16 +275,16 @@
             </select>
 
             <div class="right">
-              <button class="btn ghost" id="sample">Use sample</button>
-              <button class="btn primary" id="generate">Generate</button>
+              <button class="btn ghost" id="sample" type="button">Use sample</button>
+              <button class="btn primary" id="generate" type="button">Generate</button>
             </div>
           </div>
 
-          <div id="toast" class="toast"></div>
-
           <div class="footer">
             <div class="badge">Price: <strong>$9</strong> one-time</div>
-            <div class="badge"><a id="pay" href="STRIPE_PAYMENT_LINK_HERE" target="_blank" rel="noopener">Unlock / Pay with Stripe →</a></div>
+            <div class="badge">
+              Backend health: <a id="health" href="#" target="_blank" rel="noopener">check</a>
+            </div>
           </div>
         </div>
       </div>
@@ -274,13 +299,12 @@
           <div id="output" class="out">Your generated cover letter will appear here.</div>
 
           <div class="row" style="margin-top:12px;">
-            <button class="btn" id="copy">Copy</button>
-            <button class="btn" id="clear">Clear</button>
+            <button class="btn" id="copy" type="button">Copy</button>
+            <button class="btn" id="clear" type="button">Clear</button>
             <span class="muted" style="margin-left:auto;">Tip: keep it short, specific, and impact-focused.</span>
           </div>
 
           <div class="footer" style="margin-top:14px;">
-            <span class="muted">Backend health: <a id="health" href="#" target="_blank" rel="noopener">check</a></span>
             <span class="muted">Made for quick iteration</span>
           </div>
         </div>
@@ -288,221 +312,232 @@
     </div>
   </div>
 
- <script>
-  // ✅ your Railway API base
-  const BACKEND = "https://cover-letter-api-production-fe17.up.railway.app";
+  <script>
+    // ✅ PDF.js worker (prevents common runtime errors)
+    // Must match the exact version you loaded above
+    if (window.pdfjsLib?.GlobalWorkerOptions) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.js";
+    }
 
-  // ✅ Supabase (client-side uses ANON key only)
-  const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
-  const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // ✅ your Railway API base
+    const BACKEND = "https://cover-letter-api-production-fe17.up.railway.app";
 
-  const els = {
-    email: document.getElementById("email"),
-    password: document.getElementById("password"),
-    signup: document.getElementById("signup"),
-    login: document.getElementById("login"),
-    logout: document.getElementById("logout"),
-    authStatus: document.getElementById("authStatus"),
+    // ✅ Supabase (client-side uses ANON key only)
+    const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    job: document.getElementById("job"),
-    resume: document.getElementById("resume"),
-    resumePdf: document.getElementById("resumePdf"),
-    tone: document.getElementById("tone"),
-    generate: document.getElementById("generate"),
-    output: document.getElementById("output"),
-    status: document.getElementById("status"),
-    toast: document.getElementById("toast"),
-    copy: document.getElementById("copy"),
-    clear: document.getElementById("clear"),
-    sample: document.getElementById("sample"),
-    jobCount: document.getElementById("jobCount"),
-    resumeCount: document.getElementById("resumeCount"),
-    health: document.getElementById("health"),
-    pay: document.getElementById("pay")
-  };
+    const els = {
+      email: document.getElementById("email"),
+      password: document.getElementById("password"),
+      signup: document.getElementById("signup"),
+      login: document.getElementById("login"),
+      logout: document.getElementById("logout"),
+      authStatus: document.getElementById("authStatus"),
 
-  els.health.href = BACKEND;
+      job: document.getElementById("job"),
+      resume: document.getElementById("resume"),
+      resumePdf: document.getElementById("resumePdf"),
+      tone: document.getElementById("tone"),
+      generate: document.getElementById("generate"),
+      output: document.getElementById("output"),
+      status: document.getElementById("status"),
+      toast: document.getElementById("toast"),
+      copy: document.getElementById("copy"),
+      clear: document.getElementById("clear"),
+      sample: document.getElementById("sample"),
+      jobCount: document.getElementById("jobCount"),
+      resumeCount: document.getElementById("resumeCount"),
+      health: document.getElementById("health"),
+      pay: document.getElementById("pay")
+    };
 
-  function setToast(msg, ok=false){
-    els.toast.className = "toast" + (ok ? " ok" : "");
-    els.toast.textContent = msg;
-    els.toast.style.display = "block";
-    setTimeout(() => { els.toast.style.display = "none"; }, 3200);
-  }
+    els.health.href = BACKEND;
 
-  function count(el, outEl){
-    outEl.textContent = (el.value || "").length + " chars";
-  }
+    function setToast(msg, ok=false){
+      els.toast.className = "toast" + (ok ? " ok" : "");
+      els.toast.textContent = msg;
+      els.toast.style.display = "block";
+      setTimeout(() => { els.toast.style.display = "none"; }, 3200);
+    }
 
-  els.job.addEventListener("input", () => count(els.job, els.jobCount));
-  els.resume.addEventListener("input", () => count(els.resume, els.resumeCount));
+    function count(el, outEl){
+      outEl.textContent = (el.value || "").length + " chars";
+    }
 
-  // ---------- AUTH ----------
-  async function refreshAuthUI() {
-    const { data: { session } } = await supabase.auth.getSession();
-    const loggedIn = !!session?.user;
+    els.job.addEventListener("input", () => count(els.job, els.jobCount));
+    els.resume.addEventListener("input", () => count(els.resume, els.resumeCount));
 
-    els.generate.disabled = !loggedIn;
-    els.signup.style.display = loggedIn ? "none" : "";
-    els.login.style.display = loggedIn ? "none" : "";
-    els.logout.style.display = loggedIn ? "" : "none";
-    els.authStatus.textContent = loggedIn
-      ? `Logged in as ${session.user.email}`
-      : "Please sign up or log in to generate.";
+    // ---------- AUTH ----------
+    async function refreshAuthUI() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const loggedIn = !!session?.user;
 
-    if (loggedIn) {
-      // ensure profile exists on backend
-      await fetch(BACKEND + "/me/ensure-profile", {
+      els.generate.disabled = !loggedIn;
+      els.signup.style.display = loggedIn ? "none" : "";
+      els.login.style.display = loggedIn ? "none" : "";
+      els.logout.style.display = loggedIn ? "" : "none";
+      els.authStatus.textContent = loggedIn
+        ? `Logged in as ${session.user.email}`
+        : "Please sign up or log in to generate.";
+
+      if (loggedIn) {
+        // ensure profile exists on backend
+        try {
+          await fetch(BACKEND + "/me/ensure-profile", {
+            method: "POST",
+            headers: { Authorization: "Bearer " + session.access_token }
+          });
+        } catch (_) {}
+      }
+    }
+
+    els.signup.onclick = async () => {
+      const email = (els.email.value || "").trim();
+      const password = els.password.value || "";
+      if (!email || !password) return setToast("Enter email + password.");
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) return setToast(error.message);
+      setToast("Signed up. Now log in.", true);
+    };
+
+    els.login.onclick = async () => {
+      const email = (els.email.value || "").trim();
+      const password = els.password.value || "";
+      if (!email || !password) return setToast("Enter email + password.");
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) return setToast(error.message);
+      setToast("Logged in.", true);
+      await refreshAuthUI();
+    };
+
+    els.logout.onclick = async () => {
+      await supabaseClient.auth.signOut();
+      setToast("Logged out.", true);
+      await refreshAuthUI();
+    };
+
+    supabaseClient.auth.onAuthStateChange(() => refreshAuthUI());
+    refreshAuthUI();
+
+    // ---------- STRIPE CHECKOUT ----------
+    els.pay.onclick = async (e) => {
+      e.preventDefault();
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) return setToast("Please log in first.");
+
+      const r = await fetch(BACKEND + "/stripe/create-checkout-session", {
         method: "POST",
         headers: { Authorization: "Bearer " + session.access_token }
       });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) return setToast(data.error || "Checkout failed");
+      window.location.href = data.url;
+    };
+
+    // ---------- PDF -> TEXT ----------
+    async function pdfToText(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      let text = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const strings = content.items.map(it => it.str);
+        text += strings.join(" ") + "\n\n";
+      }
+      return text.trim();
     }
-  }
 
-  els.signup.onclick = async () => {
-    const email = (els.email.value || "").trim();
-    const password = els.password.value || "";
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) return setToast(error.message);
-    setToast("Signed up. Now log in.", true);
-  };
-
-  els.login.onclick = async () => {
-    const email = (els.email.value || "").trim();
-    const password = els.password.value || "";
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return setToast(error.message);
-    setToast("Logged in.", true);
-    await refreshAuthUI();
-  };
-
-  els.logout.onclick = async () => {
-    await supabase.auth.signOut();
-    setToast("Logged out.", true);
-    await refreshAuthUI();
-  };
-
-  supabase.auth.onAuthStateChange(() => refreshAuthUI());
-  refreshAuthUI();
-
-  // ---------- STRIPE SUBSCRIBE BUTTON ----------
-  // Replace the existing "STRIPE_PAYMENT_LINK_HERE" concept:
-  // We'll request a Checkout Session from the backend and redirect the user.
-  els.pay.onclick = async (e) => {
-    e.preventDefault();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return setToast("Please log in first.");
-
-    const r = await fetch(BACKEND + "/stripe/create-checkout-session", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + session.access_token }
+    els.resumePdf.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        els.status.textContent = "Reading PDF…";
+        const text = await pdfToText(file);
+        els.resume.value = text;
+        count(els.resume, els.resumeCount);
+        els.status.textContent = "Ready";
+        setToast("PDF imported into resume box.", true);
+      } catch (err) {
+        els.status.textContent = "Error";
+        setToast("PDF read failed. Try a different PDF.");
+      }
     });
-    const data = await r.json();
-    if (!r.ok) return setToast(data.error || "Checkout failed");
-    window.location.href = data.url;
-  };
 
-  // ---------- PDF -> TEXT (Resume) ----------
-  async function pdfToText(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-    let text = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const strings = content.items.map(it => it.str);
-      text += strings.join(" ") + "\n\n";
-    }
-    return text.trim();
-  }
-
-  els.resumePdf.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      els.status.textContent = "Reading PDF…";
-      const text = await pdfToText(file);
-      els.resume.value = text;
+    // ---------- UI ACTIONS ----------
+    els.sample.onclick = () => {
+      els.job.value = `We’re hiring a Frontend Engineer to build polished, user-friendly experiences. You’ll work with product and design to ship fast, care about accessibility, and communicate clearly. Bonus: experience with APIs and performance tuning.`;
+      els.resume.value = `Frontend engineer with 4+ years building React apps, improving conversion and performance. Recently led a redesign that increased signups by 18% and reduced load times by 35%. Strong collaboration with design/product, and comfortable integrating APIs.`;
+      count(els.job, els.jobCount);
       count(els.resume, els.resumeCount);
+      setToast("Sample pasted. Hit Generate.", true);
+    };
+
+    els.clear.onclick = () => {
+      els.job.value = "";
+      els.resume.value = "";
+      els.output.textContent = "Your generated cover letter will appear here.";
       els.status.textContent = "Ready";
-      setToast("PDF imported into resume box.", true);
-    } catch (err) {
-      els.status.textContent = "Error";
-      setToast("PDF read failed. Try a different PDF.");
-    }
-  });
+      count(els.job, els.jobCount);
+      count(els.resume, els.resumeCount);
+    };
 
-  // ---------- EXISTING UI ACTIONS ----------
-  els.sample.onclick = () => {
-    els.job.value = `We’re hiring a Frontend Engineer to build polished, user-friendly experiences...`;
-    els.resume.value = `Frontend engineer with 4+ years building React apps...`;
-    count(els.job, els.jobCount);
-    count(els.resume, els.resumeCount);
-    setToast("Sample pasted. Hit Generate.", true);
-  };
+    els.copy.onclick = async () => {
+      try{
+        await navigator.clipboard.writeText(els.output.textContent || "");
+        setToast("Copied to clipboard.", true);
+      }catch(e){
+        setToast("Copy failed. Select text manually.");
+      }
+    };
 
-  els.clear.onclick = () => {
-    els.job.value = "";
-    els.resume.value = "";
-    els.output.textContent = "Your generated cover letter will appear here.";
-    els.status.textContent = "Ready";
-    count(els.job, els.jobCount);
-    count(els.resume, els.resumeCount);
-  };
+    // ---------- GENERATE (requires login token) ----------
+    els.generate.onclick = async () => {
+      const jobDescription = els.job.value.trim();
+      const resume = els.resume.value.trim();
+      const tone = els.tone.value;
 
-  els.copy.onclick = async () => {
-    try{
-      await navigator.clipboard.writeText(els.output.textContent || "");
-      setToast("Copied to clipboard.", true);
-    }catch(e){
-      setToast("Copy failed. Select text manually.");
-    }
-  };
+      if (!jobDescription || !resume){
+        setToast("Paste BOTH job description and resume.");
+        return;
+      }
 
-  // ---------- GENERATE (now requires login token) ----------
-  els.generate.onclick = async () => {
-    const jobDescription = els.job.value.trim();
-    const resume = els.resume.value.trim();
-    const tone = els.tone.value;
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        setToast("Please log in first.");
+        return;
+      }
 
-    if (!jobDescription || !resume){
-      setToast("Paste BOTH job description and resume.");
-      return;
-    }
+      els.generate.disabled = true;
+      els.status.textContent = "Generating…";
+      els.output.textContent = "Working…";
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setToast("Please log in first.");
-      return;
-    }
+      try{
+        const r = await fetch(BACKEND + "/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + session.access_token
+          },
+          body: JSON.stringify({ jobDescription, resume, tone })
+        });
 
-    els.generate.disabled = true;
-    els.status.textContent = "Generating…";
-    els.output.textContent = "Working…";
-
-    try{
-      const r = await fetch(BACKEND + "/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + session.access_token
-        },
-        body: JSON.stringify({ jobDescription, resume, tone })
-      });
-
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Request failed");
-      els.output.textContent = (data.text || "").trim() || "No output returned.";
-      els.status.textContent = "Done";
-      setToast("Generated.", true);
-    }catch(e){
-      els.output.textContent = "Error: " + e.message;
-      els.status.textContent = "Error";
-      setToast(e.message);
-    }finally{
-      els.generate.disabled = false;
-    }
-  };
-</script>
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || "Request failed");
+        els.output.textContent = (data.text || "").trim() || "No output returned.";
+        els.status.textContent = "Done";
+        setToast("Generated.", true);
+      }catch(e){
+        els.output.textContent = "Error: " + e.message;
+        els.status.textContent = "Error";
+        setToast(e.message);
+      }finally{
+        els.generate.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
