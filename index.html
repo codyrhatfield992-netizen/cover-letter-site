@@ -1192,9 +1192,9 @@
 
       // Check auth - need a session to call the server endpoint
       if (!supabaseClient) {
-  setToast("Supabase isn't configured (or /api/config failed). Check /api/config and Netlify env vars.");
-  return;
-}
+        setToast("App is still loading. Please try again.");
+        return;
+      }
       var sessionResult = await supabaseClient.auth.getSession();
       var session = sessionResult.data.session;
       if (!session) {
@@ -1662,7 +1662,8 @@
           throw new Error(data.error || data.message || "Generation failed");
         }
 
-        lastGeneratedText = (data.text || "").trim();
+        var fullText = (data.text || "").trim();
+        var previewText = (data.preview || "").trim();
 
         if (data.generations_used !== undefined) {
           profileData.generations_used = data.generations_used;
@@ -1672,12 +1673,15 @@
         }
         updateGenCounter();
 
-        // If locked (free tier) — show preview with blur overlay
+        // If locked, render only preview text on the client.
         if (data.locked) {
-          els.output.textContent = lastGeneratedText;
+          var visiblePreview = previewText || "Preview unavailable.";
+          lastGeneratedText = visiblePreview;
+          els.output.textContent = visiblePreview;
           els.outputWrap.classList.add("locked");
           els.status.textContent = "Preview";
         } else {
+          lastGeneratedText = fullText;
           els.output.textContent = lastGeneratedText || "No output returned.";
           els.outputWrap.classList.remove("locked");
           els.status.textContent = "Done";
