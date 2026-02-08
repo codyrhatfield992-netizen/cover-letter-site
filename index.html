@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cover Letter Generator</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+    textarea { width: 100%; min-height: 160px; padding: 12px; margin: 8px 0 16px; border-radius: 10px; border: 1px solid #ddd; }
+    button { padding: 12px 16px; font-weight: 700; border-radius: 10px; border: 0; cursor: pointer; }
+    pre { white-space: pre-wrap; background: #f6f6f6; padding: 14px; border-radius: 12px; border: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <h1>Cover Letter Generator</h1>
+  <p>Paste a job description + your resume. Get a tailored cover letter.</p>
+
+  <label><b>Job Description</b></label>
+  <textarea id="job" placeholder="Paste job description here..."></textarea>
+
+  <label><b>Resume</b></label>
+  <textarea id="resume" placeholder="Paste resume here..."></textarea>
+
+  <button id="btn">Generate</button>
+
+  <h2>Result</h2>
+  <pre id="out"></pre>
+
+  <script>
+    // Replace with your Railway backend domain
+    const BACKEND = "PASTE_BACKEND_URL_HERE";
+
+    const out = document.getElementById("out");
+
+    document.getElementById("btn").onclick = async () => {
+      const jobDescription = document.getElementById("job").value.trim();
+      const resume = document.getElementById("resume").value.trim();
+
+      out.textContent = "Generating...";
+
+      if (!jobDescription || !resume) {
+        out.textContent = "Error: paste BOTH job description and resume.";
+        return;
+      }
+
+      try {
+        const r = await fetch(BACKEND + "/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobDescription, resume })
+        });
+
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Request failed");
+        out.textContent = data.text;
+      } catch (e) {
+        out.textContent = "Error: " + e.message;
+      }
+    };
+  </script>
+</body>
+</html>
