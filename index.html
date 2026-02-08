@@ -1217,8 +1217,18 @@
     }
 
     async function extractPdfText(file) {
+      if (!window.pdfjsLib || !pdfjsLib.getDocument) {
+        throw new Error("PDF library did not load");
+      }
       var arrayBuffer = await file.arrayBuffer();
-      var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      var pdf;
+      try {
+        // Use main-thread parsing first to avoid worker/CSP/CDN issues.
+        pdf = await pdfjsLib.getDocument({ data: arrayBuffer, disableWorker: true }).promise;
+      } catch (_) {
+        // Fallback to default behavior if main-thread parsing fails.
+        pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      }
       var text = "";
       for (var i = 1; i <= pdf.numPages; i++) {
         var page = await pdf.getPage(i);
@@ -1308,7 +1318,8 @@
             setTimeout(function() { els.job.focus(); }, 300);
           } catch (_) {
             els.status.textContent = "Error";
-            setToast("PDF read failed. Try a different PDF.");
+            console.error("PDF read failed (local mode):", _);
+            setToast("PDF read failed: " + ((_.message || "unknown error")));
           }
           return;
         }
@@ -1330,7 +1341,8 @@
           setTimeout(function() { els.job.focus(); }, 300);
         } catch (err) {
           els.status.textContent = "Error";
-          setToast("PDF read failed. Try a different PDF.");
+          console.error("PDF read failed (no session):", err);
+          setToast("PDF read failed: " + ((err && err.message) || "unknown error"));
         }
         return;
       }
@@ -1389,7 +1401,8 @@
         setTimeout(function() { els.job.focus(); }, 300);
       } catch (err) {
         els.status.textContent = "Error";
-        setToast("PDF upload failed. Try a different PDF.");
+        console.error("PDF upload failed:", err);
+        setToast("PDF upload failed: " + ((err && err.message) || "unknown error"));
       } finally {
         els.resumePdf.disabled = false;
       }
