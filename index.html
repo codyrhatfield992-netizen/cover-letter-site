@@ -220,7 +220,7 @@
           <button class="btn ghost" id="logout" type="button" style="display:none;">Log out</button>
 
           <div class="right" style="margin-left:auto;">
-            <a id="pay" class="btn primary" href="#" role="button">Unlock / Pay with Stripe →</a>
+            <a id="pay" class="btn primary" href="https://buy.stripe.com/aFa28s3MyfH24wPc5i9k400" role="button">Unlock / Pay with Stripe →</a>
           </div>
         </div>
 
@@ -427,13 +427,7 @@
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session) return setToast("Please log in first.");
 
-      const r = await fetch(BACKEND + "/stripe/create-checkout-session", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + session.access_token }
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) return setToast(data.error || "Checkout failed");
-      window.location.href = data.url;
+      window.location.href = "https://buy.stripe.com/aFa28s3MyfH24wPc5i9k400";
     };
 
     // ---------- PDF -> TEXT ----------
