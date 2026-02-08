@@ -1125,6 +1125,29 @@
       setTimeout(function() { el.style.display = "none"; }, 4000);
     }
 
+    async function resendConfirmationEmail(email, toastEl) {
+      if (!supabaseClient) {
+        if (toastEl) setModalToast(toastEl, getAppNotReadyMessage());
+        else setToast(getAppNotReadyMessage());
+        return false;
+      }
+      var result = await supabaseClient.auth.resend({
+        type: "signup",
+        email: email,
+        options: { emailRedirectTo: window.location.origin }
+      });
+      if (result.error) {
+        var msg = result.error.message || "Could not resend confirmation email.";
+        if (toastEl) setModalToast(toastEl, msg);
+        else setToast(msg);
+        return false;
+      }
+      var okMsg = "Confirmation email sent. Check your inbox/spam.";
+      if (toastEl) setModalToast(toastEl, okMsg, true);
+      else setToast(okMsg, true);
+      return true;
+    }
+
     function getAppNotReadyMessage() {
       return appInitError || "App is still loading. Please try again.";
     }
@@ -1496,7 +1519,7 @@
           closeEmailModal();
           openLoginModal("login");
           els.modalEmail.value = email;
-          setModalToast(els.modalToast, "This email already has an account. Please sign in.");
+          await resendConfirmationEmail(email, els.modalToast);
           return;
         }
         els.emailSubmit.disabled = false;
@@ -1580,7 +1603,14 @@
       var result = await supabaseClient.auth.signInWithPassword({ email: email, password: password });
       els.modalLoginBtn.disabled = false;
       els.modalLoginBtn.textContent = "Sign in";
-      if (result.error) return setModalToast(els.modalToast, result.error.message);
+      if (result.error) {
+        var loginErr = (result.error.message || "").toLowerCase();
+        if (loginErr.indexOf("not confirmed") !== -1 || loginErr.indexOf("email not confirmed") !== -1) {
+          await resendConfirmationEmail(email, els.modalToast);
+          return;
+        }
+        return setModalToast(els.modalToast, result.error.message);
+      }
       closeLoginModal();
       setToast("Signed in!", true);
       await refreshAuthUI();
@@ -1605,9 +1635,16 @@
       });
       els.modalSignupBtn.disabled = false;
       els.modalSignupBtn.textContent = "Create account";
-      if (result.error) return setModalToast(els.modalToast, result.error.message);
+      if (result.error) {
+        var signupErr = (result.error.message || "").toLowerCase();
+        if (signupErr.indexOf("already") !== -1 || result.error.status === 422) {
+          await resendConfirmationEmail(email, els.modalToast);
+          return;
+        }
+        return setModalToast(els.modalToast, result.error.message);
+      }
       if (result.data.user && !result.data.session) {
-        setModalToast(els.modalToast, "Check your email to confirm, then sign in.", true);
+        await resendConfirmationEmail(email, els.modalToast);
       } else {
         closeLoginModal();
         setToast("Account created!", true);
