@@ -1,60 +1,375 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cover Letter Generator</title>
+  <meta name="description" content="Generate a tailored cover letter from a job description + your resume." />
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; max-width: 900px; margin: 40px auto; padding: 0 16px; }
-    textarea { width: 100%; min-height: 160px; padding: 12px; margin: 8px 0 16px; border-radius: 10px; border: 1px solid #ddd; }
-    button { padding: 12px 16px; font-weight: 700; border-radius: 10px; border: 0; cursor: pointer; }
-    pre { white-space: pre-wrap; background: #f6f6f6; padding: 14px; border-radius: 12px; border: 1px solid #eee; }
+    :root{
+      --bg: #0b1020;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.09);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.68);
+      --line: rgba(255,255,255,.12);
+      --shadow: 0 20px 60px rgba(0,0,0,.45);
+      --radius: 18px;
+      --radius2: 14px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 10% 10%, rgba(99,102,241,.35), transparent 55%),
+        radial-gradient(900px 600px at 90% 20%, rgba(16,185,129,.22), transparent 55%),
+        radial-gradient(800px 500px at 70% 90%, rgba(236,72,153,.22), transparent 55%),
+        var(--bg);
+      min-height: 100vh;
+    }
+    a{ color: inherit; }
+    .wrap{ max-width: 1100px; margin: 0 auto; padding: 28px 16px 80px; }
+    .topbar{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      margin-bottom: 18px;
+    }
+    .brand{
+      display:flex; align-items:center; gap:10px; font-weight: 800; letter-spacing: .2px;
+    }
+    .dot{
+      width: 12px; height: 12px; border-radius: 999px;
+      background: linear-gradient(135deg, #6366f1, #22c55e);
+      box-shadow: 0 0 0 6px rgba(99,102,241,.12);
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .hero{
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 16px;
+      align-items: stretch;
+      margin-top: 14px;
+    }
+    @media (max-width: 900px){
+      .hero{ grid-template-columns: 1fr; }
+    }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card-inner{ padding: 18px; }
+    h1{
+      margin: 0 0 8px;
+      font-size: 34px;
+      line-height: 1.1;
+      letter-spacing: -.5px;
+    }
+    p{ margin: 0 0 12px; color: var(--muted); }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    @media (max-width: 900px){ .grid{ grid-template-columns:1fr; } }
+    label{
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    textarea{
+      width:100%;
+      min-height: 180px;
+      resize: vertical;
+      padding: 12px 12px;
+      border-radius: var(--radius2);
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      outline: none;
+      line-height: 1.45;
+    }
+    textarea:focus{ border-color: rgba(99,102,241,.55); box-shadow: 0 0 0 4px rgba(99,102,241,.15); }
+    .row{
+      display:flex; flex-wrap:wrap; gap: 10px; align-items:center;
+      margin-top: 12px;
+    }
+    select, .btn{
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease;
+    }
+    select{ font-weight: 600; }
+    .btn:hover{ background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.18); }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{
+      border: 0;
+      background: linear-gradient(135deg, #6366f1, #22c55e);
+      color: #071018;
+      box-shadow: 0 10px 30px rgba(99,102,241,.25);
+    }
+    .btn.ghost{
+      background: transparent;
+    }
+    .btn:disabled{
+      opacity: .55;
+      cursor:not-allowed;
+    }
+    .right{
+      display:flex; justify-content:flex-end; gap:10px; margin-left:auto;
+    }
+    .stats{
+      display:grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .stat{
+      padding: 12px;
+      border-radius: var(--radius2);
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+    }
+    .stat b{ display:block; font-size: 14px; margin-bottom: 4px; }
+    .stat span{ color: var(--muted); font-size: 12px; }
+
+    .out{
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      min-height: 220px;
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+    .muted{ color: var(--muted); font-size: 13px; }
+    .toast{
+      display:none;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius2);
+      border: 1px solid rgba(239,68,68,.35);
+      background: rgba(239,68,68,.10);
+      color: rgba(255,255,255,.88);
+      font-size: 13px;
+    }
+    .toast.ok{
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.10);
+    }
+    .footer{
+      margin-top: 16px;
+      display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+    }
+    .badge strong{ color: var(--text); font-weight: 800; }
   </style>
 </head>
 <body>
-  <h1>Cover Letter Generator</h1>
-  <p>Paste a job description + your resume. Get a tailored cover letter.</p>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand"><span class="dot"></span> Cover Letter Generator</div>
+      <div class="pill">Static Netlify • API on Railway • Stripe Payment Link</div>
+    </div>
 
-  <label><b>Job Description</b></label>
-  <textarea id="job" placeholder="Paste job description here..."></textarea>
+    <div class="hero">
+      <div class="card">
+        <div class="card-inner">
+          <h1>Generate a cover letter that sounds like you.</h1>
+          <p>Paste a job description + your resume. Pick a tone. Get a tailored letter in under a minute.</p>
 
-  <label><b>Resume</b></label>
-  <textarea id="resume" placeholder="Paste resume here..."></textarea>
+          <div class="stats">
+            <div class="stat"><b>Concise</b><span>Target &lt; 300 words</span></div>
+            <div class="stat"><b>Human</b><span>No robotic filler</span></div>
+            <div class="stat"><b>Fast</b><span>One-click generation</span></div>
+          </div>
 
-  <button id="btn">Generate</button>
+          <div class="grid">
+            <div>
+              <label>
+                <span><b>Job description</b></span>
+                <span id="jobCount">0 chars</span>
+              </label>
+              <textarea id="job" placeholder="Paste the job description here..."></textarea>
+            </div>
 
-  <h2>Result</h2>
-  <pre id="out"></pre>
+            <div>
+              <label>
+                <span><b>Your resume</b></span>
+                <span id="resumeCount">0 chars</span>
+              </label>
+              <textarea id="resume" placeholder="Paste your resume here..."></textarea>
+            </div>
+          </div>
+
+          <div class="row">
+            <select id="tone" title="Tone">
+              <option value="confident and natural" selected>Confident & natural</option>
+              <option value="friendly and warm">Friendly & warm</option>
+              <option value="direct and professional">Direct & professional</option>
+              <option value="bold and persuasive">Bold & persuasive</option>
+            </select>
+
+            <div class="right">
+              <button class="btn ghost" id="sample">Use sample</button>
+              <button class="btn primary" id="generate">Generate</button>
+            </div>
+          </div>
+
+          <div id="toast" class="toast"></div>
+
+          <div class="footer">
+            <div class="badge">Price: <strong>$9</strong> one-time</div>
+            <div class="badge"><a id="pay" href="STRIPE_PAYMENT_LINK_HERE" target="_blank" rel="noopener">Unlock / Pay with Stripe →</a></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-inner">
+          <label style="margin-bottom:10px;">
+            <span><b>Result</b></span>
+            <span class="muted" id="status">Ready</span>
+          </label>
+
+          <div id="output" class="out">Your generated cover letter will appear here.</div>
+
+          <div class="row" style="margin-top:12px;">
+            <button class="btn" id="copy">Copy</button>
+            <button class="btn" id="clear">Clear</button>
+            <span class="muted" style="margin-left:auto;">Tip: keep it short, specific, and impact-focused.</span>
+          </div>
+
+          <div class="footer" style="margin-top:14px;">
+            <span class="muted">Backend health: <a id="health" href="#" target="_blank" rel="noopener">check</a></span>
+            <span class="muted">Made for quick iteration</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
-    // Replace with your Railway backend domain
-    const BACKEND = "const BACKEND = "https://cover-letter-api-production-fe17.up.railway.app";
+    // ✅ Replace this with your Railway public domain (no trailing slash)
+    const BACKEND = "https://cover-letter-api-production-fe17.up.railway.app";
+    // Example: https://cover-letter-api-production.up.railway.app
 
-    const out = document.getElementById("out");
+    const els = {
+      job: document.getElementById("job"),
+      resume: document.getElementById("resume"),
+      tone: document.getElementById("tone"),
+      generate: document.getElementById("generate"),
+      output: document.getElementById("output"),
+      status: document.getElementById("status"),
+      toast: document.getElementById("toast"),
+      copy: document.getElementById("copy"),
+      clear: document.getElementById("clear"),
+      sample: document.getElementById("sample"),
+      jobCount: document.getElementById("jobCount"),
+      resumeCount: document.getElementById("resumeCount"),
+      health: document.getElementById("health")
+    };
 
-    document.getElementById("btn").onclick = async () => {
-      const jobDescription = document.getElementById("job").value.trim();
-      const resume = document.getElementById("resume").value.trim();
+    els.health.href = BACKEND;
 
-      out.textContent = "Generating...";
+    function setToast(msg, ok=false){
+      els.toast.className = "toast" + (ok ? " ok" : "");
+      els.toast.textContent = msg;
+      els.toast.style.display = "block";
+      setTimeout(() => { els.toast.style.display = "none"; }, 3200);
+    }
 
-      if (!jobDescription || !resume) {
-        out.textContent = "Error: paste BOTH job description and resume.";
+    function count(el, outEl){
+      outEl.textContent = (el.value || "").length + " chars";
+    }
+
+    els.job.addEventListener("input", () => count(els.job, els.jobCount));
+    els.resume.addEventListener("input", () => count(els.resume, els.resumeCount));
+
+    els.sample.onclick = () => {
+      els.job.value = `We’re hiring a Frontend Engineer to build polished, user-friendly experiences. You’ll work with product and design to ship fast, care about accessibility, and communicate clearly. Bonus: experience with APIs and performance tuning.`;
+      els.resume.value = `Frontend engineer with 4+ years building React apps, improving conversion and performance. Recently led a redesign that increased signups by 18% and reduced load times by 35%. Strong collaboration with design/product, and comfortable integrating APIs.`;
+      count(els.job, els.jobCount);
+      count(els.resume, els.resumeCount);
+      setToast("Sample pasted. Hit Generate.", true);
+    };
+
+    els.clear.onclick = () => {
+      els.job.value = "";
+      els.resume.value = "";
+      els.output.textContent = "Your generated cover letter will appear here.";
+      els.status.textContent = "Ready";
+      count(els.job, els.jobCount);
+      count(els.resume, els.resumeCount);
+    };
+
+    els.copy.onclick = async () => {
+      try{
+        await navigator.clipboard.writeText(els.output.textContent || "");
+        setToast("Copied to clipboard.", true);
+      }catch(e){
+        setToast("Copy failed. Select text manually.");
+      }
+    };
+
+    els.generate.onclick = async () => {
+      const jobDescription = els.job.value.trim();
+      const resume = els.resume.value.trim();
+      const tone = els.tone.value;
+
+      if (!jobDescription || !resume){
+        setToast("Paste BOTH job description and resume.");
         return;
       }
 
-      try {
+      els.generate.disabled = true;
+      els.status.textContent = "Generating…";
+      els.output.textContent = "Working…";
+
+      try{
         const r = await fetch(BACKEND + "/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jobDescription, resume })
+          body: JSON.stringify({ jobDescription, resume, tone })
         });
 
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || "Request failed");
-        out.textContent = data.text;
-      } catch (e) {
-        out.textContent = "Error: " + e.message;
+        els.output.textContent = (data.text || "").trim() || "No output returned.";
+        els.status.textContent = "Done";
+        setToast("Generated.", true);
+      }catch(e){
+        els.output.textContent = "Error: " + e.message;
+        els.status.textContent = "Error";
+        setToast(e.message);
+      }finally{
+        els.generate.disabled = false;
       }
     };
   </script>
