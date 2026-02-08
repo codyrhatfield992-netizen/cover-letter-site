@@ -76,9 +76,9 @@ export default async (req) => {
   }
 
   // 5. Run generation against the backend
-  const backendUrl =
-    Netlify.env.get("BACKEND_URL") ||
-    "https://cover-letter-api-production-fe17.up.railway.app";
+ const backendUrl =
+  process.env.BACKEND_URL ||
+  "https://cover-letter-api-production-fe17.up.railway.app";
 
   try {
     const backendRes = await fetch(`${backendUrl}/generate`, {
