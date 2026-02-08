@@ -1129,6 +1129,11 @@
       return appInitError || "App is still loading. Please try again.";
     }
 
+    function canUseLocalDevMode() {
+      var host = (window.location.hostname || "").toLowerCase();
+      return host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");
+    }
+
     function enableLocalDevMode(reason) {
       localDevMode = true;
       if (reason) appInitError = reason;
@@ -1908,7 +1913,13 @@
         if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
           appInitError = "Supabase is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in Netlify env vars.";
           console.warn(appInitError);
-          enableLocalDevMode(appInitError);
+          if (canUseLocalDevMode()) {
+            enableLocalDevMode(appInitError);
+          } else {
+            els.authStatus.textContent = "Setup required";
+            setToast(appInitError);
+            updateGenCounter();
+          }
           return;
         }
 
@@ -1920,7 +1931,13 @@
           ? err.message
           : "App failed to initialize. Check `/api/config` and Netlify function logs.";
         console.error("Failed to load app config:", err);
-        enableLocalDevMode(appInitError);
+        if (canUseLocalDevMode()) {
+          enableLocalDevMode(appInitError);
+        } else {
+          els.authStatus.textContent = "Setup required";
+          setToast(appInitError);
+          updateGenCounter();
+        }
       }
     })();
   </script>
