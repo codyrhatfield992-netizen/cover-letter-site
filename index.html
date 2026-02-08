@@ -3,15 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cover Letter Generator</title>
-  <meta name="description" content="Generate a tailored cover letter from a job description + your resume." />
+  <title>CoverCraft — AI Cover Letter Generator</title>
+  <meta name="description" content="Generate a tailored cover letter from a job description + your resume. 3 free generations." />
 
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-  <!-- Supabase + PDF.js -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js"></script>
 
@@ -42,9 +40,7 @@
       overflow-x: hidden;
     }
 
-    /* Animated background blobs */
-    body::before,
-    body::after {
+    body::before, body::after {
       content: '';
       position: fixed;
       border-radius: 50%;
@@ -178,6 +174,64 @@
       background-clip: text;
     }
 
+    /* ---- STEP INDICATOR ---- */
+    .steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 40px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      transition: all .3s ease;
+    }
+
+    .step .step-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      border: 2px solid var(--line);
+      background: transparent;
+      transition: all .3s ease;
+      flex-shrink: 0;
+    }
+
+    .step.active { color: var(--text); }
+
+    .step.active .step-num {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .step.done .step-num {
+      border-color: var(--accent2);
+      background: var(--accent2);
+      color: #fff;
+    }
+
+    .step.done { color: var(--accent2); }
+
+    .step-connector {
+      width: 40px;
+      height: 2px;
+      background: var(--line);
+      transition: background .3s ease;
+    }
+
+    .step-connector.done { background: var(--accent2); }
+
     /* ---- FEATURES GRID ---- */
     .features {
       display: grid;
@@ -211,17 +265,8 @@
       margin-bottom: 14px;
     }
 
-    .feature-card h3 {
-      font-size: 15px;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-
-    .feature-card span {
-      font-size: 13px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
+    .feature-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .feature-card span { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
     /* ---- MAIN GRID ---- */
     .main-grid {
@@ -245,9 +290,7 @@
       overflow: hidden;
     }
 
-    .card-inner {
-      padding: 24px;
-    }
+    .card-inner { padding: 24px; }
 
     .card-title {
       font-size: 15px;
@@ -299,9 +342,7 @@
 
     textarea::placeholder { color: rgba(255,255,255,.25); }
 
-    .input-group {
-      margin-bottom: 16px;
-    }
+    .input-group { margin-bottom: 16px; }
 
     select {
       appearance: none;
@@ -354,9 +395,7 @@
       box-shadow: 0 8px 24px rgba(99,102,241,.3);
     }
 
-    .btn.primary:hover {
-      box-shadow: 0 12px 32px rgba(99,102,241,.4);
-    }
+    .btn.primary:hover { box-shadow: 0 12px 32px rgba(99,102,241,.4); }
 
     .btn.ghost {
       background: transparent;
@@ -366,16 +405,7 @@
 
     .btn.ghost:hover { color: var(--text); background: rgba(255,255,255,.05); }
 
-    .btn.danger {
-      background: rgba(239,68,68,.12);
-      border-color: rgba(239,68,68,.25);
-      color: #fca5a5;
-    }
-
-    .btn.sm {
-      padding: 7px 12px;
-      font-size: 12px;
-    }
+    .btn.sm { padding: 7px 12px; font-size: 12px; }
 
     .btn:disabled {
       opacity: .45;
@@ -383,31 +413,8 @@
       transform: none !important;
     }
 
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .row.between {
-      justify-content: space-between;
-    }
-
-    .ml-auto { margin-left: auto; }
-
-    /* ---- OUTPUT AREA ---- */
-    .out {
-      padding: 20px;
-      border-radius: var(--radius2);
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,.25);
-      min-height: 260px;
-      white-space: pre-wrap;
-      line-height: 1.6;
-      font-size: 14px;
-      color: rgba(255,255,255,.8);
-    }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .row.between { justify-content: space-between; }
 
     /* ---- PDF UPLOAD ---- */
     .pdf-upload {
@@ -415,18 +422,22 @@
       align-items: center;
       gap: 10px;
       margin-top: 8px;
-      padding: 10px 14px;
-      border-radius: var(--radius3);
-      border: 1px dashed rgba(255,255,255,.12);
-      background: rgba(255,255,255,.02);
-      font-size: 12px;
+      padding: 14px 18px;
+      border-radius: var(--radius2);
+      border: 2px dashed rgba(99,102,241,.25);
+      background: rgba(99,102,241,.04);
+      font-size: 13px;
       color: var(--muted);
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
     }
 
-    .pdf-upload input[type="file"] {
-      font-size: 12px;
-      color: var(--muted);
+    .pdf-upload:hover {
+      border-color: rgba(99,102,241,.4);
+      background: rgba(99,102,241,.08);
     }
+
+    .pdf-upload input[type="file"] { font-size: 12px; color: var(--muted); }
 
     .pdf-upload input[type="file"]::file-selector-button {
       background: rgba(255,255,255,.08);
@@ -439,6 +450,124 @@
       font-weight: 600;
       cursor: pointer;
       margin-right: 8px;
+    }
+
+    /* ---- OUTPUT AREA ---- */
+    .out-wrap { position: relative; min-height: 260px; }
+
+    .out {
+      padding: 20px;
+      border-radius: var(--radius2);
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      min-height: 260px;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      font-size: 14px;
+      color: rgba(255,255,255,.8);
+    }
+
+    .out-wrap.locked .out { user-select: none; }
+
+    .out-wrap.locked::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 70%;
+      background: linear-gradient(to bottom, transparent 0%, rgba(10,14,26,.95) 60%);
+      border-radius: 0 0 var(--radius2) var(--radius2);
+      pointer-events: none;
+    }
+
+    .paywall-overlay {
+      display: none;
+      position: absolute;
+      left: 50%; bottom: 24px;
+      transform: translateX(-50%);
+      z-index: 2;
+      text-align: center;
+      width: 90%;
+      max-width: 360px;
+    }
+
+    .out-wrap.locked .paywall-overlay { display: block; }
+
+    .paywall-card {
+      background: rgba(20,24,40,.95);
+      border: 1px solid rgba(99,102,241,.3);
+      border-radius: var(--radius2);
+      padding: 24px;
+      backdrop-filter: blur(16px);
+    }
+
+    .paywall-card h3 { font-size: 16px; font-weight: 800; margin-bottom: 8px; }
+    .paywall-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+
+    .paywall-card .btn {
+      width: 100%;
+      justify-content: center;
+      padding: 12px;
+      font-size: 14px;
+    }
+
+    /* ---- GENERATION COUNTER ---- */
+    .gen-counter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(99,102,241,.1);
+      border: 1px solid rgba(99,102,241,.2);
+      color: rgba(255,255,255,.7);
+    }
+
+    .gen-counter.pro {
+      background: rgba(34,197,94,.1);
+      border-color: rgba(34,197,94,.2);
+      color: #4ade80;
+    }
+
+    .gen-counter.exhausted {
+      background: rgba(239,68,68,.1);
+      border-color: rgba(239,68,68,.2);
+      color: #fca5a5;
+    }
+
+    /* ---- LOADING SPINNER ---- */
+    .loading-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      gap: 20px;
+    }
+
+    .loading-container.active { display: flex; }
+
+    .spinner {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 3px solid var(--line);
+      border-top-color: var(--accent);
+      animation: spin .8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: .5; }
+      50% { opacity: 1; }
     }
 
     /* ---- TOAST ---- */
@@ -485,38 +614,10 @@
       color: var(--muted);
     }
 
-    .footer-links {
-      display: flex;
-      gap: 16px;
-    }
-
+    .footer-links { display: flex; gap: 16px; }
     .footer-links a:hover { color: var(--text); }
 
-    /* ---- AUTH INPUT ---- */
-    .auth-input {
-      flex: 1;
-      min-width: 180px;
-      padding: 10px 14px;
-      border-radius: var(--radius3);
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      font-family: inherit;
-      font-size: 13px;
-      outline: none;
-      transition: border-color .2s, box-shadow .2s;
-    }
-
-    .auth-input:focus {
-      border-color: rgba(99,102,241,.5);
-      box-shadow: 0 0 0 3px rgba(99,102,241,.1);
-    }
-
-    .auth-input::placeholder { color: rgba(255,255,255,.25); }
-
-    .muted { color: var(--muted); font-size: 13px; }
-
-    /* ---- MODAL / OVERLAY ---- */
+    /* ---- MODAL ---- */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -530,9 +631,7 @@
       animation: fadeIn .2s ease;
     }
 
-    .modal-overlay.active {
-      display: flex;
-    }
+    .modal-overlay.active { display: flex; }
 
     @keyframes fadeIn {
       from { opacity: 0; }
@@ -549,6 +648,7 @@
       box-shadow: 0 32px 100px rgba(0,0,0,.6);
       overflow: hidden;
       animation: modalSlide .25s ease;
+      position: relative;
     }
 
     @keyframes modalSlide {
@@ -556,10 +656,7 @@
       to { transform: translateY(0) scale(1); opacity: 1; }
     }
 
-    .modal-header {
-      padding: 24px 24px 0;
-      text-align: center;
-    }
+    .modal-header { padding: 24px 24px 0; text-align: center; }
 
     .modal-header .modal-icon {
       width: 56px; height: 56px;
@@ -573,34 +670,12 @@
       margin-bottom: 16px;
     }
 
-    .modal-header h2 {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      margin-bottom: 8px;
-    }
+    .modal-header h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+    .modal-header p { font-size: 14px; color: var(--muted); line-height: 1.5; }
 
-    .modal-header p {
-      font-size: 14px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .modal-body {
-      padding: 24px;
-    }
-
-    .modal-body .form-group {
-      margin-bottom: 14px;
-    }
-
-    .modal-body .form-group label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--muted);
-    }
+    .modal-body { padding: 24px; }
+    .modal-body .form-group { margin-bottom: 14px; }
+    .modal-body .form-group label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
 
     .modal-body .form-group input {
       width: 100%;
@@ -620,16 +695,9 @@
       box-shadow: 0 0 0 3px rgba(99,102,241,.1);
     }
 
-    .modal-body .form-group input::placeholder {
-      color: rgba(255,255,255,.25);
-    }
+    .modal-body .form-group input::placeholder { color: rgba(255,255,255,.25); }
 
-    .modal-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 6px;
-    }
+    .modal-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 
     .modal-actions .btn {
       width: 100%;
@@ -639,28 +707,14 @@
       border-radius: var(--radius3);
     }
 
-    .modal-footer {
-      padding: 0 24px 20px;
-      text-align: center;
-    }
-
-    .modal-footer span {
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .modal-footer a {
-      color: var(--accent);
-      font-weight: 600;
-      cursor: pointer;
-    }
-
+    .modal-footer { padding: 0 24px 20px; text-align: center; }
+    .modal-footer span { font-size: 12px; color: var(--muted); }
+    .modal-footer a { color: var(--accent); font-weight: 600; cursor: pointer; }
     .modal-footer a:hover { text-decoration: underline; }
 
     .modal-close {
       position: absolute;
-      top: 16px;
-      right: 16px;
+      top: 16px; right: 16px;
       background: rgba(255,255,255,.06);
       border: 1px solid var(--line);
       color: var(--muted);
@@ -672,10 +726,7 @@
       transition: all .15s;
     }
 
-    .modal-close:hover {
-      background: rgba(255,255,255,.1);
-      color: var(--text);
-    }
+    .modal-close:hover { background: rgba(255,255,255,.1); color: var(--text); }
 
     .modal-toast {
       display: none;
@@ -694,22 +745,8 @@
       background: rgba(34,197,94,.1);
     }
 
-    /* ---- SECTION LABELS ---- */
-    .section-label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: var(--muted);
-      margin-bottom: 12px;
-    }
-
     /* ---- MISC ---- */
-    .divider {
-      height: 1px;
-      background: var(--line);
-      margin: 16px 0;
-    }
+    .divider { height: 1px; background: var(--line); margin: 16px 0; }
 
     .tag {
       display: inline-flex;
@@ -728,10 +765,15 @@
       border: 1px solid rgba(34,197,94,.2);
     }
 
+    .muted { color: var(--muted); font-size: 13px; }
+
     @media (max-width: 900px) {
       .navbar { border-radius: var(--radius2); padding: 12px 16px; }
       .hero-header h1 { font-size: 32px; }
       .features { gap: 10px; }
+      .steps { flex-wrap: wrap; gap: 4px; }
+      .step { padding: 8px 12px; font-size: 12px; }
+      .step-connector { width: 20px; }
     }
 
     @media (max-width: 600px) {
@@ -744,7 +786,7 @@
 <body>
   <div class="wrap">
 
-    <!-- ---- NAVBAR ---- -->
+    <!-- NAVBAR -->
     <nav class="navbar">
       <div class="brand">
         <div class="brand-icon">&#9998;</div>
@@ -755,20 +797,38 @@
         <button class="btn sm" id="navLogin" type="button">Sign in</button>
         <button class="btn sm primary" id="navSignup" type="button">Get Started</button>
         <button class="btn sm ghost" id="logout" type="button" style="display:none;">Log out</button>
-        <a id="pay" class="btn sm primary" href="#" role="button" style="display:none;">Upgrade</a>
+        <button class="btn sm primary" id="pay" type="button" style="display:none;">Upgrade</button>
       </div>
     </nav>
 
-    <!-- ---- HERO HEADER ---- -->
+    <!-- HERO -->
     <section class="hero-header">
       <h1>Cover letters that actually<br/>sound like you.</h1>
-      <p>Paste a job description and your resume. Pick a tone. Get a polished, tailored cover letter in seconds.</p>
+      <p>Upload your resume, paste a job description, and get a polished, tailored cover letter in seconds.</p>
       <div class="pricing-pill">
-        <strong>$9.99/month</strong>&nbsp; for unlimited access
+        3 free generations &middot; then <strong>&nbsp;$9.99/month</strong>&nbsp; for unlimited
       </div>
     </section>
 
-    <!-- ---- FEATURES ---- -->
+    <!-- STEP INDICATOR -->
+    <div class="steps" id="stepIndicator">
+      <div class="step active" id="step1">
+        <span class="step-num">1</span>
+        <span>Upload Resume</span>
+      </div>
+      <div class="step-connector" id="conn1"></div>
+      <div class="step" id="step2">
+        <span class="step-num">2</span>
+        <span>Paste Job Description</span>
+      </div>
+      <div class="step-connector" id="conn2"></div>
+      <div class="step" id="step3">
+        <span class="step-num">3</span>
+        <span>Generate Cover Letter</span>
+      </div>
+    </div>
+
+    <!-- FEATURES -->
     <div class="features">
       <div class="feature-card">
         <div class="feature-icon" style="background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.2);">&#9889;</div>
@@ -787,7 +847,7 @@
       </div>
     </div>
 
-    <!-- ---- MAIN CONTENT ---- -->
+    <!-- MAIN CONTENT -->
     <div class="main-grid">
 
       <!-- LEFT: INPUT -->
@@ -798,6 +858,21 @@
             <div class="indicator"></div>
           </div>
 
+          <!-- Resume Upload (Step 1 - Primary) -->
+          <div class="input-group">
+            <label>
+              <span>Your Resume</span>
+              <span id="resumeCount">0 chars</span>
+            </label>
+            <div class="pdf-upload">
+              <span>&#128196;</span>
+              <input id="resumePdf" type="file" accept="application/pdf,.doc,.docx,.txt" />
+              <span>Upload PDF to auto-summarize</span>
+            </div>
+            <textarea id="resume" placeholder="Or paste your resume text here..." style="margin-top: 8px;"></textarea>
+          </div>
+
+          <!-- Job Description (Step 2) -->
           <div class="input-group">
             <label>
               <span>Job Description</span>
@@ -806,27 +881,18 @@
             <textarea id="job" placeholder="Paste the job description here..."></textarea>
           </div>
 
-          <div class="input-group">
-            <label>
-              <span>Your Resume</span>
-              <span id="resumeCount">0 chars</span>
-            </label>
-            <textarea id="resume" placeholder="Paste your resume or upload a PDF below..."></textarea>
-            <div class="pdf-upload">
-              <input id="resumePdf" type="file" accept="application/pdf" />
-              <span>Upload PDF to auto-fill</span>
-            </div>
-          </div>
-
           <div class="divider"></div>
 
           <div class="row between">
-            <select id="tone" title="Tone">
-              <option value="confident and natural" selected>Confident & natural</option>
-              <option value="friendly and warm">Friendly & warm</option>
-              <option value="direct and professional">Direct & professional</option>
-              <option value="bold and persuasive">Bold & persuasive</option>
-            </select>
+            <div class="row" style="gap: 8px;">
+              <select id="tone" title="Tone">
+                <option value="confident and natural" selected>Confident & natural</option>
+                <option value="friendly and warm">Friendly & warm</option>
+                <option value="direct and professional">Direct & professional</option>
+                <option value="bold and persuasive">Bold & persuasive</option>
+              </select>
+              <span class="gen-counter" id="genCounter">3 / 3 free remaining</span>
+            </div>
 
             <div class="row" style="gap: 8px;">
               <button class="btn ghost sm" id="sample" type="button">Load sample</button>
@@ -844,37 +910,76 @@
             <span class="tag green" id="status">Ready</span>
           </div>
 
-          <div id="output" class="out">Your generated cover letter will appear here.</div>
+          <div class="out-wrap" id="outputWrap">
+            <div class="loading-container" id="loadingState">
+              <div class="spinner"></div>
+              <span class="loading-text">Tailoring your cover letter...</span>
+            </div>
+            <div id="output" class="out">Your generated cover letter will appear here.</div>
+            <div class="paywall-overlay">
+              <div class="paywall-card">
+                <h3>Unlock your full cover letter</h3>
+                <p>Unlimited generations for $9.99/month. Cancel anytime.</p>
+                <button class="btn primary" id="paywallUpgrade" type="button">Upgrade Now</button>
+              </div>
+            </div>
+          </div>
 
           <div class="row between" style="margin-top: 14px;">
             <div class="row" style="gap: 8px;">
               <button class="btn sm" id="copy" type="button">Copy</button>
+              <button class="btn sm" id="download" type="button">Download</button>
               <button class="btn sm ghost" id="clear" type="button">Clear</button>
             </div>
-            <span class="muted" style="font-size: 11px;">Keep it short, specific, impact-focused.</span>
           </div>
         </div>
       </div>
 
     </div>
 
-    <!-- ---- FOOTER ---- -->
+    <!-- FOOTER -->
     <footer class="site-footer">
-      <span>CoverCraft &mdash; Built for quick iteration</span>
+      <span>CoverCraft &mdash; AI-powered cover letters</span>
       <div class="footer-links">
-        <a id="health" href="#" target="_blank" rel="noopener">Backend status</a>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
       </div>
     </footer>
   </div>
 
-  <!-- ---- LOGIN MODAL ---- -->
+  <!-- EMAIL MODAL (invisible account creation) -->
+  <div class="modal-overlay" id="emailModal">
+    <div class="modal">
+      <button class="modal-close" id="emailModalClose" type="button">&#10005;</button>
+      <div class="modal-header">
+        <div class="modal-icon">&#9993;</div>
+        <h2>Enter your email to generate</h2>
+        <p>We'll create your account automatically so you can access your cover letters.</p>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Email address</label>
+          <input id="emailInput" type="email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div id="emailModalToast" class="modal-toast"></div>
+        <div class="modal-actions">
+          <button class="btn primary" id="emailSubmit" type="button">Continue</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span>Already have an account? <a id="switchToLogin">Sign in</a></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIN MODAL -->
   <div class="modal-overlay" id="loginModal">
-    <div class="modal" style="position: relative;">
+    <div class="modal">
       <button class="modal-close" id="modalClose" type="button">&#10005;</button>
       <div class="modal-header">
         <div class="modal-icon">&#128274;</div>
-        <h2 id="modalTitle">Sign in to continue</h2>
-        <p id="modalSubtitle">An account is required to generate your cover letter.</p>
+        <h2 id="modalTitle">Sign in</h2>
+        <p id="modalSubtitle">Welcome back! Sign in to your account.</p>
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -888,7 +993,7 @@
         <div id="modalToast" class="modal-toast"></div>
         <div class="modal-actions">
           <button class="btn primary" id="modalLoginBtn" type="button">Sign in</button>
-          <button class="btn" id="modalSignupBtn" type="button">Create account</button>
+          <button class="btn" id="modalSignupBtn" type="button" style="display:none;">Create account</button>
         </div>
       </div>
       <div class="modal-footer">
@@ -897,7 +1002,7 @@
     </div>
   </div>
 
-  <!-- ---- GLOBAL TOAST ---- -->
+  <!-- GLOBAL TOAST -->
   <div id="toast" class="toast"></div>
 
   <script>
@@ -907,12 +1012,24 @@
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.js";
     }
 
-    const BACKEND = "https://cover-letter-api-production-fe17.up.railway.app";
+    // ---- STATE ----
+    let supabaseClient = null;
+    let currentUser = null;
+    let profileData = {
+      is_pro: false,
+      subscription_status: "none",
+      generations_used: 0,
+      free_limit: 3,
+    };
+    let lastGeneratedText = "";
+    let isGenerating = false;
 
-    const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
-    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const LOCAL_STORAGE_KEYS = {
+      resume: "cc_resume",
+      job: "cc_job",
+    };
 
+    // ---- ELEMENTS ----
     const els = {
       navLogin: document.getElementById("navLogin"),
       navSignup: document.getElementById("navSignup"),
@@ -924,16 +1041,30 @@
       tone: document.getElementById("tone"),
       generate: document.getElementById("generate"),
       output: document.getElementById("output"),
+      outputWrap: document.getElementById("outputWrap"),
+      loadingState: document.getElementById("loadingState"),
       status: document.getElementById("status"),
       toast: document.getElementById("toast"),
       copy: document.getElementById("copy"),
+      download: document.getElementById("download"),
       clear: document.getElementById("clear"),
       sample: document.getElementById("sample"),
       jobCount: document.getElementById("jobCount"),
       resumeCount: document.getElementById("resumeCount"),
-      health: document.getElementById("health"),
       pay: document.getElementById("pay"),
-      // Modal
+      paywallUpgrade: document.getElementById("paywallUpgrade"),
+      genCounter: document.getElementById("genCounter"),
+      step1: document.getElementById("step1"),
+      step2: document.getElementById("step2"),
+      step3: document.getElementById("step3"),
+      conn1: document.getElementById("conn1"),
+      conn2: document.getElementById("conn2"),
+      emailModal: document.getElementById("emailModal"),
+      emailModalClose: document.getElementById("emailModalClose"),
+      emailInput: document.getElementById("emailInput"),
+      emailSubmit: document.getElementById("emailSubmit"),
+      emailModalToast: document.getElementById("emailModalToast"),
+      switchToLogin: document.getElementById("switchToLogin"),
       loginModal: document.getElementById("loginModal"),
       modalClose: document.getElementById("modalClose"),
       modalEmail: document.getElementById("modalEmail"),
@@ -944,277 +1075,672 @@
       modalTitle: document.getElementById("modalTitle"),
       modalSubtitle: document.getElementById("modalSubtitle"),
       modalSwitchLink: document.getElementById("modalSwitchLink"),
-      modalSwitch: document.getElementById("modalSwitch")
+      modalSwitch: document.getElementById("modalSwitch"),
     };
 
-    els.health.href = BACKEND;
-
     // ---- TOAST ----
-    function setToast(msg, ok = false) {
+    function setToast(msg, ok) {
       els.toast.className = "toast" + (ok ? " ok" : "");
       els.toast.textContent = msg;
       els.toast.style.display = "block";
-      setTimeout(() => { els.toast.style.display = "none"; }, 3500);
+      setTimeout(function() { els.toast.style.display = "none"; }, 3500);
     }
 
-    function setModalToast(msg, ok = false) {
-      els.modalToast.className = "modal-toast" + (ok ? " ok" : "");
-      els.modalToast.textContent = msg;
-      els.modalToast.style.display = "block";
-      setTimeout(() => { els.modalToast.style.display = "none"; }, 3500);
+    function setModalToast(el, msg, ok) {
+      el.className = "modal-toast" + (ok ? " ok" : "");
+      el.textContent = msg;
+      el.style.display = "block";
+      setTimeout(function() { el.style.display = "none"; }, 4000);
     }
 
     // ---- CHAR COUNTS ----
     function count(el, outEl) {
       outEl.textContent = (el.value || "").length + " chars";
     }
-    els.job.addEventListener("input", () => count(els.job, els.jobCount));
-    els.resume.addEventListener("input", () => count(els.resume, els.resumeCount));
+    els.job.addEventListener("input", function() {
+      count(els.job, els.jobCount);
+      updateSteps();
+      autoSave();
+    });
+    els.resume.addEventListener("input", function() {
+      count(els.resume, els.resumeCount);
+      updateSteps();
+      autoSave();
+    });
 
-    // ---- MODAL LOGIC ----
-    let modalMode = "login"; // "login" or "signup"
+    // ---- AUTO-SAVE ----
+    var saveTimer = null;
+    function autoSave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(function() {
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEYS.resume, els.resume.value);
+          localStorage.setItem(LOCAL_STORAGE_KEYS.job, els.job.value);
+        } catch (_) {}
+      }, 500);
+    }
 
-    function openModal(mode) {
+    function loadSaved() {
+      try {
+        var savedResume = localStorage.getItem(LOCAL_STORAGE_KEYS.resume);
+        var savedJob = localStorage.getItem(LOCAL_STORAGE_KEYS.job);
+        if (savedResume) {
+          els.resume.value = savedResume;
+          count(els.resume, els.resumeCount);
+        }
+        if (savedJob) {
+          els.job.value = savedJob;
+          count(els.job, els.jobCount);
+        }
+      } catch (_) {}
+    }
+
+    // ---- STEP INDICATOR ----
+    function updateSteps() {
+      var hasResume = els.resume.value.trim().length > 0;
+      var hasJob = els.job.value.trim().length > 0;
+
+      els.step1.className = hasResume ? "step done" : "step active";
+      els.step1.querySelector(".step-num").textContent = hasResume ? "\u2713" : "1";
+      els.conn1.className = hasResume ? "step-connector done" : "step-connector";
+
+      if (hasResume && hasJob) {
+        els.step2.className = "step done";
+        els.step2.querySelector(".step-num").textContent = "\u2713";
+      } else if (hasResume) {
+        els.step2.className = "step active";
+        els.step2.querySelector(".step-num").textContent = "2";
+      } else {
+        els.step2.className = "step";
+        els.step2.querySelector(".step-num").textContent = "2";
+      }
+
+      els.conn2.className = (hasResume && hasJob) ? "step-connector done" : "step-connector";
+
+      if (hasResume && hasJob) {
+        els.step3.className = "step active";
+        els.step3.querySelector(".step-num").textContent = "3";
+      } else {
+        els.step3.className = "step";
+        els.step3.querySelector(".step-num").textContent = "3";
+      }
+    }
+
+    // ---- GENERATION COUNTER ----
+    function updateGenCounter() {
+      var used = profileData.generations_used || 0;
+      var limit = profileData.free_limit || 3;
+      var remaining = Math.max(0, limit - used);
+      var isPro = profileData.is_pro && profileData.subscription_status === "active";
+
+      if (isPro) {
+        els.genCounter.className = "gen-counter pro";
+        els.genCounter.textContent = "Unlimited generations";
+      } else if (remaining > 0) {
+        els.genCounter.className = "gen-counter";
+        els.genCounter.textContent = remaining + " / " + limit + " free remaining";
+      } else {
+        els.genCounter.className = "gen-counter exhausted";
+        els.genCounter.textContent = "0 free generations left";
+      }
+    }
+
+    // ---- PDF UPLOAD + AI SUMMARY ----
+    els.resumePdf.addEventListener("change", async function(e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      // Check auth - need a session to call the server endpoint
+      if (!supabaseClient) {
+        setToast("App is still loading. Please try again.");
+        return;
+      }
+      var sessionResult = await supabaseClient.auth.getSession();
+      var session = sessionResult.data.session;
+      if (!session) {
+        // Fall back to client-side text extraction if not logged in
+        try {
+          els.status.textContent = "Reading PDF...";
+          var arrayBuffer = await file.arrayBuffer();
+          var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          var text = "";
+          for (var i = 1; i <= pdf.numPages; i++) {
+            var page = await pdf.getPage(i);
+            var content = await page.getTextContent();
+            var strings = content.items.map(function(it) { return it.str; });
+            text += strings.join(" ") + "\n\n";
+          }
+          text = text.trim();
+          els.resume.value = text;
+          count(els.resume, els.resumeCount);
+          updateSteps();
+          autoSave();
+          els.status.textContent = "Ready";
+          setToast("Resume imported! Sign in to get an AI-powered summary.", true);
+          setTimeout(function() { els.job.focus(); }, 300);
+        } catch (err) {
+          els.status.textContent = "Error";
+          setToast("PDF read failed. Try a different file or paste manually.");
+        }
+        return;
+      }
+
+      // Server-side upload flow with status progression
+      els.status.textContent = "Uploading...";
+      els.resumePdf.disabled = true;
+
+      try {
+        var formData = new FormData();
+        formData.append("resume", file);
+
+        els.status.textContent = "Reading...";
+
+        var res = await fetch("/api/resume-upload", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + session.access_token },
+          body: formData,
+        });
+
+        var data = await res.json();
+
+        if (!res.ok) {
+          if (data.error === "scanned_pdf") {
+            els.status.textContent = "Scanned PDF";
+            setToast(data.message || "This looks like a scanned PDF. Upload a text-based PDF or paste your resume.");
+          } else {
+            els.status.textContent = "Error";
+            setToast(data.error || data.message || "PDF upload failed. Try a different file or paste manually.");
+          }
+          els.resumePdf.disabled = false;
+          return;
+        }
+
+        if (!data.cached) {
+          els.status.textContent = "Summarizing...";
+          // Small visual delay so the user sees the "Summarizing" status
+          await new Promise(function(r) { setTimeout(r, 300); });
+        }
+
+        els.resume.value = data.summary || "";
+        count(els.resume, els.resumeCount);
+        updateSteps();
+        autoSave();
+        els.status.textContent = "Ready";
+
+        if (data.raw) {
+          setToast(data.message || "Raw text extracted (AI summary unavailable).", true);
+        } else if (data.cached) {
+          setToast("Resume summary loaded! Now paste a job description.", true);
+        } else {
+          setToast("Resume summarized! Now paste a job description.", true);
+        }
+
+        setTimeout(function() { els.job.focus(); }, 300);
+      } catch (err) {
+        els.status.textContent = "Error";
+        setToast("PDF upload failed. Try a different file or paste manually.");
+      } finally {
+        els.resumePdf.disabled = false;
+      }
+    });
+
+    // ---- EMAIL MODAL (invisible account creation) ----
+    var pendingGenerateAfterAuth = false;
+
+    function openEmailModal() {
+      els.emailModal.classList.add("active");
+      els.emailInput.value = "";
+      els.emailModalToast.style.display = "none";
+      setTimeout(function() { els.emailInput.focus(); }, 100);
+    }
+
+    function closeEmailModal() {
+      els.emailModal.classList.remove("active");
+    }
+
+    els.emailModalClose.onclick = closeEmailModal;
+    els.emailModal.addEventListener("click", function(e) {
+      if (e.target === els.emailModal) closeEmailModal();
+    });
+
+    els.switchToLogin.onclick = function() {
+      closeEmailModal();
+      openLoginModal("login");
+    };
+
+    els.emailSubmit.onclick = async function() {
+      if (!supabaseClient) return setModalToast(els.emailModalToast, "App is still loading.");
+      var email = (els.emailInput.value || "").trim();
+      if (!email || email.indexOf("@") === -1) return setModalToast(els.emailModalToast, "Enter a valid email address.");
+
+      els.emailSubmit.disabled = true;
+      els.emailSubmit.textContent = "Creating account...";
+
+      var autoPassword = crypto.randomUUID();
+      var result = await supabaseClient.auth.signUp({ email: email, password: autoPassword });
+
+      if (result.error) {
+        if (result.error.message.toLowerCase().indexOf("already") !== -1 || result.error.status === 422) {
+          els.emailSubmit.disabled = false;
+          els.emailSubmit.textContent = "Continue";
+          closeEmailModal();
+          openLoginModal("login");
+          els.modalEmail.value = email;
+          setModalToast(els.modalToast, "This email already has an account. Please sign in.");
+          return;
+        }
+        els.emailSubmit.disabled = false;
+        els.emailSubmit.textContent = "Continue";
+        return setModalToast(els.emailModalToast, result.error.message);
+      }
+
+      if (result.data.user && !result.data.session) {
+        els.emailSubmit.disabled = false;
+        els.emailSubmit.textContent = "Continue";
+        setModalToast(els.emailModalToast, "Check your email to confirm your account, then sign in.", true);
+        return;
+      }
+
+      els.emailSubmit.disabled = false;
+      els.emailSubmit.textContent = "Continue";
+      closeEmailModal();
+      setToast("Account created!", true);
+      await refreshAuthUI();
+
+      if (pendingGenerateAfterAuth) {
+        pendingGenerateAfterAuth = false;
+        setTimeout(function() { els.generate.click(); }, 300);
+      }
+    };
+
+    // ---- LOGIN MODAL ----
+    var modalMode = "login";
+
+    function openLoginModal(mode) {
       modalMode = mode || "login";
-      updateModalUI();
+      updateLoginModalUI();
       els.loginModal.classList.add("active");
       els.modalEmail.value = "";
       els.modalPassword.value = "";
       els.modalToast.style.display = "none";
-      setTimeout(() => els.modalEmail.focus(), 100);
+      setTimeout(function() { els.modalEmail.focus(); }, 100);
     }
 
-    function closeModal() {
+    function closeLoginModal() {
       els.loginModal.classList.remove("active");
     }
 
-    function updateModalUI() {
+    function updateLoginModalUI() {
       if (modalMode === "login") {
-        els.modalTitle.textContent = "Sign in to continue";
-        els.modalSubtitle.textContent = "An account is required to generate your cover letter.";
+        els.modalTitle.textContent = "Sign in";
+        els.modalSubtitle.textContent = "Welcome back! Sign in to your account.";
         els.modalLoginBtn.textContent = "Sign in";
         els.modalLoginBtn.style.display = "";
         els.modalSignupBtn.style.display = "none";
         els.modalSwitch.innerHTML = 'Don\'t have an account? <a id="modalSwitchLink">Sign up</a>';
       } else {
         els.modalTitle.textContent = "Create your account";
-        els.modalSubtitle.textContent = "Sign up to start generating tailored cover letters.";
+        els.modalSubtitle.textContent = "Sign up to start generating cover letters.";
         els.modalLoginBtn.style.display = "none";
         els.modalSignupBtn.textContent = "Create account";
         els.modalSignupBtn.style.display = "";
         els.modalSwitch.innerHTML = 'Already have an account? <a id="modalSwitchLink">Sign in</a>';
       }
-      // Re-bind switch link
-      document.getElementById("modalSwitchLink").onclick = () => {
+      document.getElementById("modalSwitchLink").onclick = function() {
         modalMode = modalMode === "login" ? "signup" : "login";
-        updateModalUI();
+        updateLoginModalUI();
       };
     }
 
-    els.modalClose.onclick = closeModal;
-    els.loginModal.addEventListener("click", (e) => {
-      if (e.target === els.loginModal) closeModal();
+    els.modalClose.onclick = closeLoginModal;
+    els.loginModal.addEventListener("click", function(e) {
+      if (e.target === els.loginModal) closeLoginModal();
     });
 
-    els.navLogin.onclick = () => openModal("login");
-    els.navSignup.onclick = () => openModal("signup");
+    els.navLogin.onclick = function() { openLoginModal("login"); };
+    els.navSignup.onclick = function() { openLoginModal("signup"); };
 
-    // Modal login
-    els.modalLoginBtn.onclick = async () => {
-      const email = (els.modalEmail.value || "").trim();
-      const password = els.modalPassword.value || "";
-      if (!email || !password) return setModalToast("Enter email and password.");
+    els.modalLoginBtn.onclick = async function() {
+      if (!supabaseClient) return setModalToast(els.modalToast, "App is still loading.");
+      var email = (els.modalEmail.value || "").trim();
+      var password = els.modalPassword.value || "";
+      if (!email || !password) return setModalToast(els.modalToast, "Enter email and password.");
       els.modalLoginBtn.disabled = true;
       els.modalLoginBtn.textContent = "Signing in...";
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      var result = await supabaseClient.auth.signInWithPassword({ email: email, password: password });
       els.modalLoginBtn.disabled = false;
       els.modalLoginBtn.textContent = "Sign in";
-      if (error) return setModalToast(error.message);
-      setModalToast("Signed in!", true);
-      setTimeout(() => {
-        closeModal();
-        setToast("Logged in successfully.", true);
-      }, 600);
+      if (result.error) return setModalToast(els.modalToast, result.error.message);
+      closeLoginModal();
+      setToast("Signed in!", true);
       await refreshAuthUI();
+      if (pendingGenerateAfterAuth) {
+        pendingGenerateAfterAuth = false;
+        setTimeout(function() { els.generate.click(); }, 300);
+      }
     };
 
-    // Modal signup
-    els.modalSignupBtn.onclick = async () => {
-      const email = (els.modalEmail.value || "").trim();
-      const password = els.modalPassword.value || "";
-      if (!email || !password) return setModalToast("Enter email and password.");
+    els.modalSignupBtn.onclick = async function() {
+      if (!supabaseClient) return setModalToast(els.modalToast, "App is still loading.");
+      var email = (els.modalEmail.value || "").trim();
+      var password = els.modalPassword.value || "";
+      if (!email || !password) return setModalToast(els.modalToast, "Enter email and password.");
+      if (password.length < 6) return setModalToast(els.modalToast, "Password must be at least 6 characters.");
       els.modalSignupBtn.disabled = true;
       els.modalSignupBtn.textContent = "Creating account...";
-      const { error } = await supabaseClient.auth.signUp({ email, password });
+      var result = await supabaseClient.auth.signUp({ email: email, password: password });
       els.modalSignupBtn.disabled = false;
       els.modalSignupBtn.textContent = "Create account";
-      if (error) return setModalToast(error.message);
-      setModalToast("Account created! You can now sign in.", true);
-      setTimeout(() => {
-        modalMode = "login";
-        updateModalUI();
-      }, 1500);
+      if (result.error) return setModalToast(els.modalToast, result.error.message);
+      if (result.data.user && !result.data.session) {
+        setModalToast(els.modalToast, "Check your email to confirm, then sign in.", true);
+      } else {
+        closeLoginModal();
+        setToast("Account created!", true);
+        await refreshAuthUI();
+      }
     };
 
-    // ---- AUTH ----
+    // ---- AUTH UI ----
     async function refreshAuthUI() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const loggedIn = !!session?.user;
+      if (!supabaseClient) return;
+      var sessionResult = await supabaseClient.auth.getSession();
+      var session = sessionResult.data.session;
+      var loggedIn = !!(session && session.user);
+      currentUser = loggedIn ? session.user : null;
 
       els.navLogin.style.display = loggedIn ? "none" : "";
       els.navSignup.style.display = loggedIn ? "none" : "";
       els.logout.style.display = loggedIn ? "" : "none";
-      els.pay.style.display = loggedIn ? "" : "none";
       els.authStatus.textContent = loggedIn ? session.user.email : "";
 
       if (loggedIn) {
         try {
-          await fetch(BACKEND + "/me/ensure-profile", {
+          await fetch("/api/ensure-profile", {
             method: "POST",
             headers: { Authorization: "Bearer " + session.access_token }
           });
         } catch (_) {}
+
+        try {
+          var profileRes = await fetch("/api/profile", {
+            headers: { Authorization: "Bearer " + session.access_token }
+          });
+          var data = await profileRes.json();
+          if (data && data.profile) {
+            profileData = data.profile;
+          }
+        } catch (_) {
+          profileData = { is_pro: false, subscription_status: "none", generations_used: 0, free_limit: 3 };
+        }
+
+        var isPro = profileData.is_pro && profileData.subscription_status === "active";
+        els.pay.style.display = isPro ? "none" : "";
+      } else {
+        profileData = { is_pro: false, subscription_status: "none", generations_used: 0, free_limit: 3 };
+        els.pay.style.display = "none";
       }
+
+      updateGenCounter();
+      updateGenerateButton();
     }
 
-    els.logout.onclick = async () => {
+    function updateGenerateButton() {
+      if (isGenerating) return;
+      els.generate.textContent = "Generate";
+      els.generate.disabled = false;
+    }
+
+    els.logout.onclick = async function() {
+      if (!supabaseClient) return;
       await supabaseClient.auth.signOut();
+      currentUser = null;
+      profileData = { is_pro: false, subscription_status: "none", generations_used: 0, free_limit: 3 };
       setToast("Logged out.", true);
       await refreshAuthUI();
     };
 
-    supabaseClient.auth.onAuthStateChange(() => refreshAuthUI());
-    refreshAuthUI();
-
     // ---- STRIPE CHECKOUT ----
-    els.pay.onclick = async (e) => {
-      e.preventDefault();
-      const { data: { session } } = await supabaseClient.auth.getSession();
+    async function startCheckout() {
+      if (!supabaseClient) return;
+      var sessionResult = await supabaseClient.auth.getSession();
+      var session = sessionResult.data.session;
       if (!session) {
-        openModal("login");
+        openEmailModal();
         return;
       }
-      const r = await fetch(BACKEND + "/stripe/create-checkout-session", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + session.access_token }
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) return setToast(data.error || "Checkout failed");
-      window.location.href = data.url;
-    };
-
-    // ---- PDF -> TEXT ----
-    async function pdfToText(file) {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let text = "";
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const strings = content.items.map(it => it.str);
-        text += strings.join(" ") + "\n\n";
+      try {
+        var r = await fetch("/api/stripe/create-checkout-session", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + session.access_token }
+        });
+        var data = await r.json();
+        if (!r.ok) return setToast(data.error || "Checkout failed");
+        window.location.href = data.url;
+      } catch (err) {
+        setToast("Could not start checkout. Try again.");
       }
-      return text.trim();
     }
 
-    els.resumePdf.addEventListener("change", async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      try {
-        els.status.textContent = "Reading PDF...";
-        const text = await pdfToText(file);
-        els.resume.value = text;
-        count(els.resume, els.resumeCount);
-        els.status.textContent = "Ready";
-        setToast("PDF imported into resume box.", true);
-      } catch (err) {
-        els.status.textContent = "Error";
-        setToast("PDF read failed. Try a different PDF.");
-      }
-    });
+    els.pay.onclick = startCheckout;
+    els.paywallUpgrade.onclick = startCheckout;
 
-    // ---- UI ACTIONS ----
-    els.sample.onclick = () => {
-      els.job.value = `We're hiring a Frontend Engineer to build polished, user-friendly experiences. You'll work with product and design to ship fast, care about accessibility, and communicate clearly. Bonus: experience with APIs and performance tuning.`;
-      els.resume.value = `Frontend engineer with 4+ years building React apps, improving conversion and performance. Recently led a redesign that increased signups by 18% and reduced load times by 35%. Strong collaboration with design/product, and comfortable integrating APIs.`;
+    // ---- SAMPLE DATA ----
+    els.sample.onclick = function() {
+      els.resume.value = "Frontend engineer with 4+ years building React apps, improving conversion and performance. Recently led a redesign that increased signups by 18% and reduced load times by 35%. Strong collaboration with design/product, and comfortable integrating APIs.";
+      els.job.value = "We're hiring a Frontend Engineer to build polished, user-friendly experiences. You'll work with product and design to ship fast, care about accessibility, and communicate clearly. Bonus: experience with APIs and performance tuning.";
       count(els.job, els.jobCount);
       count(els.resume, els.resumeCount);
+      updateSteps();
+      autoSave();
       setToast("Sample data loaded. Hit Generate.", true);
     };
 
-    els.clear.onclick = () => {
+    // ---- CLEAR ----
+    els.clear.onclick = function() {
       els.job.value = "";
       els.resume.value = "";
       els.output.textContent = "Your generated cover letter will appear here.";
       els.status.textContent = "Ready";
+      els.outputWrap.classList.remove("locked");
+      lastGeneratedText = "";
       count(els.job, els.jobCount);
       count(els.resume, els.resumeCount);
+      updateSteps();
+      autoSave();
     };
 
-    els.copy.onclick = async () => {
+    // ---- COPY ----
+    els.copy.onclick = async function() {
+      var text = lastGeneratedText || els.output.textContent || "";
+      if (!text || text === "Your generated cover letter will appear here.") {
+        return setToast("Nothing to copy yet.");
+      }
+      if (els.outputWrap.classList.contains("locked")) {
+        return setToast("Upgrade to copy the full cover letter.");
+      }
       try {
-        await navigator.clipboard.writeText(els.output.textContent || "");
+        await navigator.clipboard.writeText(text);
         setToast("Copied to clipboard.", true);
       } catch (e) {
         setToast("Copy failed. Select text manually.");
       }
     };
 
-    // ---- GENERATE (requires login - shows modal if not logged in) ----
-    els.generate.onclick = async () => {
-      const jobDescription = els.job.value.trim();
-      const resume = els.resume.value.trim();
-      const tone = els.tone.value;
+    // ---- DOWNLOAD ----
+    els.download.onclick = function() {
+      if (els.outputWrap.classList.contains("locked")) {
+        return setToast("Upgrade to download the full cover letter.");
+      }
+      var text = lastGeneratedText || els.output.textContent || "";
+      if (!text || text === "Your generated cover letter will appear here.") {
+        return setToast("Nothing to download yet.");
+      }
+      var blob = new Blob([text], { type: "text/plain" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "cover-letter.txt";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setToast("Downloaded!", true);
+    };
 
-      if (!jobDescription || !resume) {
-        setToast("Paste both a job description and your resume.");
+    // ---- GENERATE ----
+    els.generate.onclick = async function() {
+      if (isGenerating) return;
+
+      var jobDescription = els.job.value.trim();
+      var resumeText = els.resume.value.trim();
+      var tone = els.tone.value;
+
+      if (!resumeText) {
+        setToast("Upload or paste your resume first.");
+        els.resume.focus();
         return;
       }
 
-      // Check if logged in - show login modal if not
-      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!jobDescription) {
+        setToast("Paste a job description.");
+        els.job.focus();
+        return;
+      }
+
+      // If not logged in, show email modal for invisible account creation
+      if (!supabaseClient) return setToast("App is still loading.");
+      var sessionResult = await supabaseClient.auth.getSession();
+      var session = sessionResult.data.session;
       if (!session) {
-        openModal("login");
+        pendingGenerateAfterAuth = true;
+        openEmailModal();
         return;
       }
 
+      // Pre-check free limit (server enforces too)
+      var isPro = profileData.is_pro && profileData.subscription_status === "active";
+      var freeRemaining = Math.max(0, (profileData.free_limit || 3) - (profileData.generations_used || 0));
+      if (!isPro && freeRemaining <= 0) {
+        setToast("You've used all free generations. Upgrade for unlimited access.");
+        startCheckout();
+        return;
+      }
+
+      // Start generation
+      isGenerating = true;
       els.generate.disabled = true;
+      els.generate.textContent = "Generating...";
       els.status.textContent = "Generating...";
-      els.output.textContent = "Working...";
+      els.output.style.display = "none";
+      els.loadingState.classList.add("active");
+      els.outputWrap.classList.remove("locked");
 
       try {
-        const r = await fetch(BACKEND + "/generate", {
+        var r = await fetch("/api/generate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + session.access_token
+            "Authorization": "Bearer " + session.access_token,
           },
-          body: JSON.stringify({ jobDescription, resume, tone })
+          body: JSON.stringify({ jobDescription: jobDescription, resume: resumeText, tone: tone }),
         });
 
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(data.error || "Request failed");
-        els.output.textContent = (data.text || "").trim() || "No output returned.";
-        els.status.textContent = "Done";
-        setToast("Cover letter generated.", true);
+        var data = await r.json();
+
+        els.loadingState.classList.remove("active");
+        els.output.style.display = "";
+
+        if (!r.ok) {
+          if (r.status === 403 && data.error === "limit_reached") {
+            profileData.generations_used = data.generations_used || profileData.generations_used;
+            updateGenCounter();
+            setToast(data.message || "Free generations exhausted. Upgrade for unlimited.");
+            startCheckout();
+            return;
+          }
+          throw new Error(data.error || data.message || "Generation failed");
+        }
+
+        lastGeneratedText = (data.text || "").trim();
+
+        if (data.generations_used !== undefined) {
+          profileData.generations_used = data.generations_used;
+        }
+        if (data.free_limit !== undefined) {
+          profileData.free_limit = data.free_limit;
+        }
+        updateGenCounter();
+
+        // If locked (free tier) — show preview with blur overlay
+        if (data.locked) {
+          els.output.textContent = lastGeneratedText;
+          els.outputWrap.classList.add("locked");
+          els.status.textContent = "Preview";
+        } else {
+          els.output.textContent = lastGeneratedText || "No output returned.";
+          els.outputWrap.classList.remove("locked");
+          els.status.textContent = "Done";
+        }
+
+        setToast("Cover letter generated!", true);
       } catch (e) {
+        els.loadingState.classList.remove("active");
+        els.output.style.display = "";
         els.output.textContent = "Error: " + e.message;
         els.status.textContent = "Error";
         setToast(e.message);
       } finally {
+        isGenerating = false;
         els.generate.disabled = false;
+        els.generate.textContent = "Generate";
       }
     };
 
-    // Handle Enter key in modal inputs
-    document.addEventListener("keydown", (e) => {
-      if (!els.loginModal.classList.contains("active")) return;
-      if (e.key === "Escape") closeModal();
-      if (e.key === "Enter") {
-        if (modalMode === "login") els.modalLoginBtn.click();
-        else els.modalSignupBtn.click();
+    // Handle Enter/Escape in modals
+    document.addEventListener("keydown", function(e) {
+      if (els.emailModal.classList.contains("active")) {
+        if (e.key === "Escape") closeEmailModal();
+        if (e.key === "Enter") els.emailSubmit.click();
+        return;
+      }
+      if (els.loginModal.classList.contains("active")) {
+        if (e.key === "Escape") closeLoginModal();
+        if (e.key === "Enter") {
+          if (modalMode === "login") els.modalLoginBtn.click();
+          else els.modalSignupBtn.click();
+        }
       }
     });
+
+    // ---- INIT ----
+    (async function init() {
+      loadSaved();
+      updateSteps();
+
+      // Auto-focus resume if empty
+      if (!els.resume.value.trim()) {
+        setTimeout(function() { els.resume.focus(); }, 200);
+      }
+
+      try {
+        var configRes = await fetch("/api/config");
+        var cfg = await configRes.json();
+
+        if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+          console.warn("Supabase not configured.");
+          updateGenCounter();
+          return;
+        }
+
+        supabaseClient = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+        supabaseClient.auth.onAuthStateChange(function() { refreshAuthUI(); });
+        await refreshAuthUI();
+      } catch (err) {
+        console.error("Failed to load app config:", err);
+        updateGenCounter();
+      }
+    })();
   </script>
 </body>
 </html>
