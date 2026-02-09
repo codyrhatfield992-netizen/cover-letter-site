@@ -1125,29 +1125,6 @@
       setTimeout(function() { el.style.display = "none"; }, 4000);
     }
 
-    async function resendConfirmationEmail(email, toastEl) {
-      if (!supabaseClient) {
-        if (toastEl) setModalToast(toastEl, getAppNotReadyMessage());
-        else setToast(getAppNotReadyMessage());
-        return false;
-      }
-      var result = await supabaseClient.auth.resend({
-        type: "signup",
-        email: email,
-        options: { emailRedirectTo: window.location.origin }
-      });
-      if (result.error) {
-        var msg = result.error.message || "Could not resend confirmation email.";
-        if (toastEl) setModalToast(toastEl, msg);
-        else setToast(msg);
-        return false;
-      }
-      var okMsg = "Confirmation email sent. Check your inbox/spam.";
-      if (toastEl) setModalToast(toastEl, okMsg, true);
-      else setToast(okMsg, true);
-      return true;
-    }
-
     function getAppNotReadyMessage() {
       return appInitError || "App is still loading. Please try again.";
     }
@@ -1519,7 +1496,7 @@
           closeEmailModal();
           openLoginModal("login");
           els.modalEmail.value = email;
-          await resendConfirmationEmail(email, els.modalToast);
+          setModalToast(els.modalToast, "This account already exists. Please sign in.");
           return;
         }
         els.emailSubmit.disabled = false;
@@ -1606,7 +1583,7 @@
       if (result.error) {
         var loginErr = (result.error.message || "").toLowerCase();
         if (loginErr.indexOf("not confirmed") !== -1 || loginErr.indexOf("email not confirmed") !== -1) {
-          await resendConfirmationEmail(email, els.modalToast);
+          setModalToast(els.modalToast, "Email not confirmed. If you disabled confirmations in Supabase, create a fresh account or sign in.");
           return;
         }
         return setModalToast(els.modalToast, result.error.message);
@@ -1638,13 +1615,13 @@
       if (result.error) {
         var signupErr = (result.error.message || "").toLowerCase();
         if (signupErr.indexOf("already") !== -1 || result.error.status === 422) {
-          await resendConfirmationEmail(email, els.modalToast);
+          setModalToast(els.modalToast, "This account already exists. Please sign in.");
           return;
         }
         return setModalToast(els.modalToast, result.error.message);
       }
       if (result.data.user && !result.data.session) {
-        await resendConfirmationEmail(email, els.modalToast);
+        setModalToast(els.modalToast, "Account created. Check your Supabase email-confirmation settings if auto-login did not occur.", true);
       } else {
         closeLoginModal();
         setToast("Account created!", true);
