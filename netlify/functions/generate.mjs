@@ -80,6 +80,9 @@ export default async (req) => {
       if (lowered.includes("incorrect api key") || lowered.includes("invalid api key") || lowered.includes("openai")) {
         backendError = "AI backend is misconfigured. The model API key is invalid or missing.";
       }
+      if (lowered.includes("exceeded your current quota") || lowered.includes("insufficient_quota") || lowered.includes("429")) {
+        backendError = "AI provider quota exceeded. Add billing/credits to your OpenAI project, then retry.";
+      }
 
       // Log failure
       await supabase.from("generation_logs").insert({
