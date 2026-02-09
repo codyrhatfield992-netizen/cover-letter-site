@@ -1765,9 +1765,23 @@
           method: "POST",
           headers: { Authorization: "Bearer " + session.access_token }
         });
-        var data = await r.json();
+        var raw = await r.text();
+        var data = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch (_) {
+          data = { error: raw || "Invalid checkout response." };
+        }
         if (!r.ok) return setToast(data.error || "Checkout failed");
-        window.location.href = data.url;
+        var redirectUrl = (data.url || "").trim();
+        var parsedUrl = null;
+        try {
+          parsedUrl = new URL(redirectUrl);
+        } catch (_) {}
+        if (!parsedUrl || !/^https?:$/i.test(parsedUrl.protocol)) {
+          return setToast("Checkout failed: invalid redirect URL.");
+        }
+        window.location.assign(parsedUrl.toString());
       } catch (err) {
         setToast("Could not start checkout. Try again.");
       }

@@ -32,31 +32,18 @@ export default async (req) => {
 
   const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
   const priceId = getEnv("STRIPE_PRICE_ID");
-  const paymentLinkUrl = getEnv("STRIPE_PAYMENT_LINK");
-
-  // Prefer dynamic Checkout Session for reliable user mapping + redirect.
-  // Only fall back to Payment Link when checkout env is incomplete.
   if (!stripeSecretKey || !priceId) {
-    if (paymentLinkUrl) {
-      try {
-        const url = new URL(paymentLinkUrl);
-        url.searchParams.set("client_reference_id", user.id);
-        if (user.email) {
-          url.searchParams.set("prefilled_email", user.email);
-        }
-        return jsonResponse(200, { url: url.toString() });
-      } catch (_) {
-        return jsonResponse(200, { url: paymentLinkUrl });
-      }
-    }
     return jsonResponse(500, {
-      error:
-        "Missing Stripe checkout env. Set STRIPE_SECRET_KEY + STRIPE_PRICE_ID (recommended) or STRIPE_PAYMENT_LINK.",
+      error: "Missing Stripe checkout env. Set STRIPE_SECRET_KEY and STRIPE_PRICE_ID.",
     });
   }
 
   const stripe = new Stripe(stripeSecretKey);
-  const siteUrl = getEnv("SITE_URL") || getEnv("URL") || req.headers.get("origin") || "";
+  const rawSiteUrl = getEnv("SITE_URL") || getEnv("URL") || req.headers.get("origin") || "";
+  let siteUrl = "";
+  try {
+    siteUrl = new URL(rawSiteUrl).origin;
+  } catch (_) {}
   if (!siteUrl) {
     return jsonResponse(500, { error: "Missing SITE_URL/URL for Stripe redirect URLs" });
   }
@@ -87,6 +74,9 @@ export default async (req) => {
 
   try {
     const session = await stripe.checkout.sessions.create(sessionParams);
+    if (!session.url) {
+      return jsonResponse(500, { error: "Stripe checkout did not return a redirect URL." });
+    }
     return jsonResponse(200, { url: session.url });
   } catch (err) {
     return jsonResponse(500, { error: err.message });
