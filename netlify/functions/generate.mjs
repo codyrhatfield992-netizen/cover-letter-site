@@ -165,6 +165,18 @@ export default async (req) => {
 
   // 2. Fetch profile to check subscription and generation count
   const supabase = getSupabaseAdmin();
+  await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: user.id,
+        email: user.email || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    )
+    .catch(() => {});
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("is_pro, subscription_status, generations_used")
@@ -172,7 +184,10 @@ export default async (req) => {
     .single();
 
   const generationsUsed = profile?.generations_used || 0;
-  const isSubscribed = profile?.is_pro === true && profile?.subscription_status === "active";
+  const subscriptionStatus = String(profile?.subscription_status || "").toLowerCase();
+  const isSubscribed =
+    profile?.is_pro === true &&
+    (subscriptionStatus === "active" || subscriptionStatus === "trialing");
   const freeLimit = getFreeLimit();
   const freeRemaining = Math.max(0, freeLimit - generationsUsed);
 

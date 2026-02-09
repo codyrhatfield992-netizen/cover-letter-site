@@ -17,37 +17,51 @@ export default async (req) => {
     return jsonResponse(401, { error: "Not authenticated" });
   }
 
-  const paymentLinkUrl = getEnv("STRIPE_PAYMENT_LINK");
-  if (paymentLinkUrl) {
-    try {
-      const url = new URL(paymentLinkUrl);
-      url.searchParams.set("client_reference_id", user.id);
-      if (user.email) {
-        url.searchParams.set("prefilled_email", user.email);
-      }
-      return jsonResponse(200, { url: url.toString() });
-    } catch (_) {
-      return jsonResponse(200, { url: paymentLinkUrl });
-    }
-  }
+  const supabase = getSupabaseAdmin();
+  await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: user.id,
+        email: user.email || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    )
+    .catch(() => {});
 
   const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
-  if (!stripeSecretKey) {
-    return jsonResponse(500, { error: "Missing STRIPE_SECRET_KEY (or set STRIPE_PAYMENT_LINK)" });
+  const priceId = getEnv("STRIPE_PRICE_ID");
+  const paymentLinkUrl = getEnv("STRIPE_PAYMENT_LINK");
+
+  // Prefer dynamic Checkout Session for reliable user mapping + redirect.
+  // Only fall back to Payment Link when checkout env is incomplete.
+  if (!stripeSecretKey || !priceId) {
+    if (paymentLinkUrl) {
+      try {
+        const url = new URL(paymentLinkUrl);
+        url.searchParams.set("client_reference_id", user.id);
+        if (user.email) {
+          url.searchParams.set("prefilled_email", user.email);
+        }
+        return jsonResponse(200, { url: url.toString() });
+      } catch (_) {
+        return jsonResponse(200, { url: paymentLinkUrl });
+      }
+    }
+    return jsonResponse(500, {
+      error:
+        "Missing Stripe checkout env. Set STRIPE_SECRET_KEY + STRIPE_PRICE_ID (recommended) or STRIPE_PAYMENT_LINK.",
+    });
   }
 
   const stripe = new Stripe(stripeSecretKey);
-  const priceId = getEnv("STRIPE_PRICE_ID");
-  if (!priceId) {
-    return jsonResponse(500, { error: "Missing STRIPE_PRICE_ID (or set STRIPE_PAYMENT_LINK)" });
-  }
   const siteUrl = getEnv("SITE_URL") || getEnv("URL") || req.headers.get("origin") || "";
   if (!siteUrl) {
     return jsonResponse(500, { error: "Missing SITE_URL/URL for Stripe redirect URLs" });
   }
 
   // Check if user already has a Stripe customer ID
-  const supabase = getSupabaseAdmin();
   const { data: profile } = await supabase
     .from("profiles")
     .select("stripe_customer_id")
@@ -60,7 +74,7 @@ export default async (req) => {
     line_items: [{ price: priceId, quantity: 1 }],
     client_reference_id: user.id,
     metadata: { user_id: user.id },
-    success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${siteUrl}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteUrl}/`,
   };
 

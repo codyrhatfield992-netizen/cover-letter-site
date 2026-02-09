@@ -1086,6 +1086,12 @@
       } catch (_) {}
     }
 
+    function isPaidUser(profile) {
+      var p = profile || profileData || {};
+      var status = String(p.subscription_status || "").toLowerCase();
+      return !!p.is_pro && (status === "active" || status === "trialing");
+    }
+
     // ---- ELEMENTS ----
     const els = {
       navLogin: document.getElementById("navLogin"),
@@ -1260,7 +1266,7 @@
       var used = profileData.generations_used || 0;
       var limit = profileData.free_limit || 3;
       var remaining = Math.max(0, limit - used);
-      var isPro = profileData.is_pro && profileData.subscription_status === "active";
+      var isPro = isPaidUser(profileData);
 
       if (isPro) {
         els.genCounter.className = "gen-counter pro";
@@ -1272,6 +1278,43 @@
         els.genCounter.className = "gen-counter exhausted";
         els.genCounter.textContent = "0 free generations left";
       }
+    }
+
+    async function syncProfileFromServer(opts) {
+      if (!supabaseClient || localDevMode) return false;
+      var options = opts || {};
+      var session = await getValidSession();
+      if (!session) return false;
+      try {
+        await fetch("/api/ensure-profile", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + session.access_token }
+        });
+      } catch (_) {}
+      try {
+        var profileRes = await fetch("/api/profile", {
+          headers: { Authorization: "Bearer " + session.access_token }
+        });
+        var data = await profileRes.json().catch(function() { return {}; });
+        if (profileRes.ok && data && data.profile) {
+          profileData = data.profile;
+          if (!isPaidUser(profileData)) {
+            profileData.generations_used = Math.max(
+              profileData.generations_used || 0,
+              loadLocalGenerationUsed()
+            );
+          } else {
+            saveLocalGenerationUsed(0);
+          }
+          updateGenCounter();
+          updateGenerateButton();
+          if (options.toastOnSuccess) {
+            setToast("Payment confirmed. Unlimited access is now active.", true);
+          }
+          return true;
+        }
+      } catch (_) {}
+      return false;
     }
 
     async function extractPdfText(file) {
@@ -1668,8 +1711,7 @@
       els.authStatus.textContent = loggedIn ? session.user.email : "";
 
       if (loggedIn) {
-        // Low-usage mode: avoid auth-time API calls.
-        // Profile usage is updated during generation/checkouts and local counters.
+        // Low-usage mode baseline.
         if (!profileData || typeof profileData !== "object") {
           profileData = { is_pro: false, subscription_status: "none", generations_used: 0, free_limit: 3 };
         }
@@ -1679,7 +1721,7 @@
           loadLocalGenerationUsed()
         );
 
-        var isPro = profileData.is_pro && profileData.subscription_status === "active";
+        var isPro = isPaidUser(profileData);
         els.pay.style.display = isPro ? "none" : "";
       } else {
         profileData = { is_pro: false, subscription_status: "none", generations_used: 0, free_limit: 3 };
@@ -1834,7 +1876,7 @@
         }
 
         // Pre-check free limit (server enforces too)
-        var isPro = profileData.is_pro && profileData.subscription_status === "active";
+        var isPro = isPaidUser(profileData);
         var freeRemaining = Math.max(0, (profileData.free_limit || 3) - (profileData.generations_used || 0));
         if (!isPro && freeRemaining <= 0) {
           setToast("You've used all free generations. Upgrade for unlimited access.");
@@ -1889,7 +1931,7 @@
             return;
           }
           // Hard fallback: never block the user on provider/backend issues.
-          if (!(profileData.is_pro && profileData.subscription_status === "active")) {
+          if (!isPaidUser(profileData)) {
             profileData.generations_used = (profileData.generations_used || 0) + 1;
             saveLocalGenerationUsed(profileData.generations_used);
             updateGenCounter();
@@ -1933,7 +1975,7 @@
       } catch (e) {
         els.loadingState.classList.remove("active");
         els.output.style.display = "";
-        if (!(profileData.is_pro && profileData.subscription_status === "active")) {
+        if (!isPaidUser(profileData)) {
           profileData.generations_used = (profileData.generations_used || 0) + 1;
           saveLocalGenerationUsed(profileData.generations_used);
           updateGenCounter();
@@ -1970,6 +2012,10 @@
 
     // ---- INIT ----
     (async function init() {
+      var url = new URL(window.location.href);
+      var checkoutState = (url.searchParams.get("checkout") || "").toLowerCase();
+      var checkoutPaid = url.searchParams.get("paid") === "1";
+
       loadSaved();
       updateSteps();
 
@@ -2001,6 +2047,17 @@
         supabaseClient = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
         supabaseClient.auth.onAuthStateChange(function() { refreshAuthUI(); });
         await refreshAuthUI();
+
+        if (checkoutState === "success" || checkoutPaid) {
+          var synced = await syncProfileFromServer({ toastOnSuccess: true });
+          if (!synced) {
+            setToast("Payment received. Refreshing account status...", true);
+          }
+          url.searchParams.delete("checkout");
+          url.searchParams.delete("paid");
+          url.searchParams.delete("session_id");
+          window.history.replaceState({}, document.title, url.pathname + (url.search ? ("?" + url.searchParams.toString()) : "") + url.hash);
+        }
       } catch (err) {
         appInitError = err && err.message
           ? err.message

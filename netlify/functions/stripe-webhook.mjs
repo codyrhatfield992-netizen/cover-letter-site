@@ -40,16 +40,40 @@ export default async (req) => {
     const session = event.data.object;
     let userId = session.client_reference_id || session.metadata?.user_id;
     const checkoutEmail = session.customer_details?.email || session.customer_email || null;
+    const stripeCustomerId = session.customer || null;
+    const stripeSubscriptionId = session.subscription || null;
 
     if (!userId && checkoutEmail) {
       const { data: emailProfile } = await supabase
         .from("profiles")
         .select("id")
-        .eq("email", checkoutEmail)
+        .ilike("email", checkoutEmail)
         .maybeSingle();
 
       if (emailProfile?.id) {
         userId = emailProfile.id;
+      }
+    }
+
+    if (!userId && stripeCustomerId) {
+      const { data: customerProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("stripe_customer_id", stripeCustomerId)
+        .maybeSingle();
+      if (customerProfile?.id) {
+        userId = customerProfile.id;
+      }
+    }
+
+    if (!userId && stripeSubscriptionId) {
+      const { data: subProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("stripe_subscription_id", stripeSubscriptionId)
+        .maybeSingle();
+      if (subProfile?.id) {
+        userId = subProfile.id;
       }
     }
 
@@ -60,13 +84,21 @@ export default async (req) => {
 
     // Retrieve the subscription for period end and price info
     let subscriptionData = {};
+    let computedStatus = "active";
+    let computedIsPro = true;
     if (session.subscription) {
       try {
         const subscription = await stripe.subscriptions.retrieve(session.subscription);
+        const status = String(subscription.status || "active").toLowerCase();
+        const isPro = status === "active" || status === "trialing";
         subscriptionData = {
+          subscription_status: status,
+          is_pro: isPro,
           current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
           plan_id: subscription.items?.data?.[0]?.price?.id || null,
         };
+        computedStatus = status;
+        computedIsPro = isPro;
       } catch (_) {}
     }
 
@@ -76,10 +108,10 @@ export default async (req) => {
         {
           id: userId,
           email: checkoutEmail,
-          is_pro: true,
-          stripe_customer_id: session.customer,
-          stripe_subscription_id: session.subscription,
-          subscription_status: "active",
+          is_pro: computedIsPro,
+          stripe_customer_id: stripeCustomerId,
+          stripe_subscription_id: stripeSubscriptionId,
+          subscription_status: computedStatus,
           plan_id: subscriptionData.plan_id || null,
           ...subscriptionData,
           updated_at: new Date().toISOString(),
