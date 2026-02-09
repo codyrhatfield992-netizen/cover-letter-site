@@ -1668,22 +1668,9 @@
       els.authStatus.textContent = loggedIn ? session.user.email : "";
 
       if (loggedIn) {
-        try {
-          await fetch("/api/ensure-profile", {
-            method: "POST",
-            headers: { Authorization: "Bearer " + session.access_token }
-          });
-        } catch (_) {}
-
-        try {
-          var profileRes = await fetch("/api/profile", {
-            headers: { Authorization: "Bearer " + session.access_token }
-          });
-          var data = await profileRes.json();
-          if (data && data.profile) {
-            profileData = data.profile;
-          }
-        } catch (_) {
+        // Low-usage mode: avoid auth-time API calls.
+        // Profile usage is updated during generation/checkouts and local counters.
+        if (!profileData || typeof profileData !== "object") {
           profileData = { is_pro: false, subscription_status: "none", generations_used: 0, free_limit: 3 };
         }
 
