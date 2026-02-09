@@ -75,16 +75,22 @@ export default async (req) => {
     const data = await backendRes.json().catch(() => ({}));
 
     if (!backendRes.ok) {
+      let backendError = data.error || "Generation failed";
+      const lowered = String(backendError).toLowerCase();
+      if (lowered.includes("incorrect api key") || lowered.includes("invalid api key") || lowered.includes("openai")) {
+        backendError = "AI backend is misconfigured. The model API key is invalid or missing.";
+      }
+
       // Log failure
       await supabase.from("generation_logs").insert({
         user_email: user.email,
         user_id: user.id,
         success: false,
         generations_at_request: generationsUsed,
-        error_message: data.error || "Backend generation failed",
+        error_message: backendError,
       }).catch(() => {});
 
-      return jsonResponse(backendRes.status, { error: data.error || "Generation failed" });
+      return jsonResponse(backendRes.status, { error: backendError });
     }
 
     // 6. Increment generation count
