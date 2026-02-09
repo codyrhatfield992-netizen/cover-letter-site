@@ -1866,7 +1866,12 @@
             },
             body: JSON.stringify({ jobDescription: jobDescription, resume: resumeText, tone: tone }),
           });
-          data = await r.json();
+          var rawBody = await r.text();
+          try {
+            data = rawBody ? JSON.parse(rawBody) : {};
+          } catch (_) {
+            data = { error: rawBody || "Invalid server response" };
+          }
         }
 
         els.loadingState.classList.remove("active");

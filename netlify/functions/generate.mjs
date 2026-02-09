@@ -30,6 +30,55 @@ Output ONLY the finished cover letter. No headings. No bullets.
 `;
 }
 
+function sentenceize(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractHighlights(resume) {
+  const parts = String(resume || "")
+    .split(/\n+/)
+    .map((s) => sentenceize(s))
+    .filter((s) => s.length > 20);
+  return parts.slice(0, 4);
+}
+
+function extractPriorities(jobDescription) {
+  const parts = String(jobDescription || "")
+    .split(/\n+/)
+    .map((s) => sentenceize(s))
+    .filter((s) => s.length > 20);
+  return parts.slice(0, 3);
+}
+
+function generateFallbackCoverLetter({ jobDescription, resume, tone }) {
+  const priorities = extractPriorities(jobDescription);
+  const highlights = extractHighlights(resume);
+  const roleLine = priorities[0] || "the role";
+
+  const lines = [];
+  lines.push("Dear Hiring Manager,");
+  lines.push("");
+  lines.push(`I am applying for ${roleLine}. My background aligns well with your needs, and I communicate in a ${tone || "confident and natural"} style while focusing on measurable outcomes.`);
+  lines.push("");
+  if (highlights.length > 0) {
+    lines.push("Relevant experience I would bring includes:");
+    highlights.forEach((h) => lines.push(`- ${h}`));
+    lines.push("");
+  }
+  if (priorities.length > 1) {
+    lines.push("I am especially interested in contributing to priorities such as:");
+    priorities.slice(1).forEach((p) => lines.push(`- ${p}`));
+    lines.push("");
+  }
+  lines.push("I would welcome the opportunity to discuss how I can contribute to your team from day one.");
+  lines.push("");
+  lines.push("Sincerely,");
+  lines.push("[Your Name]");
+  return lines.join("\n");
+}
+
 async function generateViaDirectProvider({ jobDescription, resume, tone }) {
   const apiKey = getEnv("OPENAI_API_KEY");
   if (!apiKey) {
@@ -176,6 +225,15 @@ export default async (req) => {
         if (directResult.error) {
           generationError = directResult.error;
         }
+      }
+    }
+
+    if (!finalText) {
+      let backendError = generationError || "Generation failed";
+      const lowered = String(backendError).toLowerCase();
+      const allowLocalFallback = getEnv("ALLOW_LOCAL_FALLBACK", "").toLowerCase() === "true";
+      if (allowLocalFallback && (lowered.includes("402") || lowered.includes("429") || lowered.includes("quota") || lowered.includes("insufficient credits"))) {
+        finalText = generateFallbackCoverLetter({ jobDescription, resume, tone });
       }
     }
 
