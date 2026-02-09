@@ -1772,7 +1772,10 @@
         } catch (_) {
           data = { error: raw || "Invalid checkout response." };
         }
-        if (!r.ok) return setToast(data.error || "Checkout failed");
+        if (!r.ok) {
+          var checkoutErr = data.error || ("Checkout failed (" + r.status + ").");
+          return setToast(checkoutErr);
+        }
         var redirectUrl = (data.url || "").trim();
         var parsedUrl = null;
         try {
