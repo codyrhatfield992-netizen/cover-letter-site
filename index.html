@@ -1885,7 +1885,14 @@
             startCheckout();
             return;
           }
-          throw new Error(data.error || data.message || "Generation failed");
+          // Hard fallback: never block the user on provider/backend issues.
+          var fallbackTextFromError = runLocalGeneration(jobDescription, resumeText, tone);
+          lastGeneratedText = fallbackTextFromError;
+          els.output.textContent = fallbackTextFromError;
+          els.outputWrap.classList.remove("locked");
+          els.status.textContent = "Done (Fallback)";
+          setToast("AI provider unavailable. Generated fallback cover letter instead.", true);
+          return;
         }
 
         var fullText = (data.text || "").trim();
@@ -1917,9 +1924,12 @@
       } catch (e) {
         els.loadingState.classList.remove("active");
         els.output.style.display = "";
-        els.output.textContent = "Error: " + e.message;
-        els.status.textContent = "Error";
-        setToast(e.message);
+        var fallbackTextOnCatch = runLocalGeneration(jobDescription, resumeText, tone);
+        lastGeneratedText = fallbackTextOnCatch;
+        els.output.textContent = fallbackTextOnCatch;
+        els.outputWrap.classList.remove("locked");
+        els.status.textContent = "Done (Fallback)";
+        setToast("AI request failed. Generated fallback cover letter instead.", true);
       } finally {
         isGenerating = false;
         els.generate.disabled = false;
