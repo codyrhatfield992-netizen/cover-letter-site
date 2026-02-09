@@ -896,6 +896,7 @@
 
             <div class="row" style="gap: 8px;">
               <button class="btn ghost sm" id="sample" type="button">Load sample</button>
+              <button class="btn sm" id="retry" type="button">Try Again</button>
               <button class="btn primary" id="generate" type="button">Generate</button>
             </div>
           </div>
@@ -1061,6 +1062,30 @@
       resumeSource: "cc_resume_source",
     };
 
+    function getLocalGenerationKey() {
+      return currentUser && currentUser.id ? "cc_local_gen_used_" + currentUser.id : null;
+    }
+
+    function loadLocalGenerationUsed() {
+      var key = getLocalGenerationKey();
+      if (!key) return 0;
+      try {
+        var raw = localStorage.getItem(key);
+        var n = parseInt(raw || "0", 10);
+        return Number.isFinite(n) && n > 0 ? n : 0;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function saveLocalGenerationUsed(value) {
+      var key = getLocalGenerationKey();
+      if (!key) return;
+      try {
+        localStorage.setItem(key, String(Math.max(0, value || 0)));
+      } catch (_) {}
+    }
+
     // ---- ELEMENTS ----
     const els = {
       navLogin: document.getElementById("navLogin"),
@@ -1081,6 +1106,7 @@
       download: document.getElementById("download"),
       clear: document.getElementById("clear"),
       sample: document.getElementById("sample"),
+      retry: document.getElementById("retry"),
       jobCount: document.getElementById("jobCount"),
       resumeCount: document.getElementById("resumeCount"),
       pay: document.getElementById("pay"),
@@ -1661,6 +1687,11 @@
           profileData = { is_pro: false, subscription_status: "none", generations_used: 0, free_limit: 3 };
         }
 
+        profileData.generations_used = Math.max(
+          profileData.generations_used || 0,
+          loadLocalGenerationUsed()
+        );
+
         var isPro = profileData.is_pro && profileData.subscription_status === "active";
         els.pay.style.display = isPro ? "none" : "";
       } else {
@@ -1676,6 +1707,7 @@
       if (isGenerating) return;
       els.generate.textContent = "Generate";
       els.generate.disabled = false;
+      els.retry.disabled = false;
     }
 
     els.logout.onclick = async function() {
@@ -1722,6 +1754,11 @@
       updateSteps();
       autoSave();
       setToast("Sample job description loaded. Upload a resume PDF to continue.", true);
+    };
+
+    els.retry.onclick = function() {
+      if (isGenerating) return;
+      els.generate.click();
     };
 
     // ---- CLEAR ----
@@ -1822,6 +1859,7 @@
       // Start generation
       isGenerating = true;
       els.generate.disabled = true;
+      els.retry.disabled = true;
       els.generate.textContent = "Generating...";
       els.status.textContent = "Generating...";
       els.output.style.display = "none";
@@ -1857,12 +1895,18 @@
         if (r && !r.ok) {
           if (r.status === 403 && data.error === "limit_reached") {
             profileData.generations_used = data.generations_used || profileData.generations_used;
+            saveLocalGenerationUsed(profileData.generations_used || 0);
             updateGenCounter();
             setToast(data.message || "Free generations exhausted. Upgrade for unlimited.");
             startCheckout();
             return;
           }
           // Hard fallback: never block the user on provider/backend issues.
+          if (!(profileData.is_pro && profileData.subscription_status === "active")) {
+            profileData.generations_used = (profileData.generations_used || 0) + 1;
+            saveLocalGenerationUsed(profileData.generations_used);
+            updateGenCounter();
+          }
           var fallbackTextFromError = runLocalGeneration(jobDescription, resumeText, tone);
           lastGeneratedText = fallbackTextFromError;
           els.output.textContent = fallbackTextFromError;
@@ -1877,6 +1921,7 @@
 
         if (data.generations_used !== undefined) {
           profileData.generations_used = data.generations_used;
+          saveLocalGenerationUsed(profileData.generations_used || 0);
         }
         if (data.free_limit !== undefined) {
           profileData.free_limit = data.free_limit;
@@ -1901,6 +1946,11 @@
       } catch (e) {
         els.loadingState.classList.remove("active");
         els.output.style.display = "";
+        if (!(profileData.is_pro && profileData.subscription_status === "active")) {
+          profileData.generations_used = (profileData.generations_used || 0) + 1;
+          saveLocalGenerationUsed(profileData.generations_used);
+          updateGenCounter();
+        }
         var fallbackTextOnCatch = runLocalGeneration(jobDescription, resumeText, tone);
         lastGeneratedText = fallbackTextOnCatch;
         els.output.textContent = fallbackTextOnCatch;
@@ -1910,6 +1960,7 @@
       } finally {
         isGenerating = false;
         els.generate.disabled = false;
+        els.retry.disabled = false;
         els.generate.textContent = "Generate";
       }
     };
