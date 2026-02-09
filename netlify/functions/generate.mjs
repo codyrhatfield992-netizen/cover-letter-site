@@ -232,7 +232,7 @@ export default async (req) => {
       let backendError = generationError || "Generation failed";
       const lowered = String(backendError).toLowerCase();
       const allowLocalFallback = getEnv("ALLOW_LOCAL_FALLBACK", "").toLowerCase() === "true";
-      if (allowLocalFallback && (lowered.includes("402") || lowered.includes("429") || lowered.includes("quota") || lowered.includes("insufficient credits"))) {
+      if (allowLocalFallback) {
         finalText = generateFallbackCoverLetter({ jobDescription, resume, tone });
       }
     }
