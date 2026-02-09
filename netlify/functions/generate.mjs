@@ -2,6 +2,103 @@ import { getAuthenticatedUser, getSupabaseAdmin, getFreeLimit } from "./shared/s
 import { getEnv } from "./shared/env.mjs";
 import { jsonResponse, optionsResponse } from "./shared/http.mjs";
 
+const DEFAULT_BACKEND_URL = "https://cover-letter-api-production-fe17.up.railway.app";
+const DEFAULT_MODEL = "gpt-4o-mini";
+
+function buildPrompt(jobDescription, resume, tone) {
+  return `
+You are a professional career coach and hiring manager.
+
+Write a highly tailored, concise, persuasive cover letter based on the inputs.
+
+Rules:
+- Match the job description tone (${tone})
+- Sound human, not robotic
+- Avoid generic phrases like "I am excited to apply" or "I am writing to express my interest"
+- Do NOT repeat the resume verbatim
+- Focus on value, impact, and fit
+- Keep it under 300 words
+- No fluff
+
+Job Description:
+${jobDescription}
+
+Candidate Resume:
+${resume}
+
+Output ONLY the finished cover letter. No headings. No bullets.
+`;
+}
+
+async function generateViaDirectProvider({ jobDescription, resume, tone }) {
+  const apiKey = getEnv("OPENAI_API_KEY");
+  if (!apiKey) {
+    return { ok: false, error: "AI provider key missing in Netlify env (OPENAI_API_KEY)." };
+  }
+
+  const baseUrl = (getEnv("OPENAI_BASE_URL", "https://api.openai.com/v1") || "https://api.openai.com/v1").replace(/\/+$/, "");
+  const model = getEnv("OPENAI_MODEL", DEFAULT_MODEL) || DEFAULT_MODEL;
+  const payload = {
+    model,
+    messages: [{ role: "user", content: buildPrompt(jobDescription, resume, tone) }],
+    temperature: 0.7,
+  };
+
+  const headers = {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${apiKey}`,
+  };
+
+  // Helpful headers for OpenRouter (safe no-op for others).
+  const siteUrl = getEnv("SITE_URL");
+  if (siteUrl) headers["HTTP-Referer"] = siteUrl;
+  headers["X-Title"] = "CoverCraft";
+
+  try {
+    const r = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      return {
+        ok: false,
+        error: data.error?.message || data.error || `Direct provider error (${r.status})`,
+      };
+    }
+    const text = data?.choices?.[0]?.message?.content?.trim() || "";
+    if (!text) {
+      return { ok: false, error: "Direct provider returned empty output." };
+    }
+    return { ok: true, text };
+  } catch (err) {
+    return { ok: false, error: "Direct provider unavailable: " + err.message };
+  }
+}
+
+async function generateViaBackend({ jobDescription, resume, tone }) {
+  const backendUrl = getEnv("BACKEND_URL", DEFAULT_BACKEND_URL);
+  try {
+    const backendRes = await fetch(`${backendUrl}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobDescription, resume, tone }),
+    });
+    const data = await backendRes.json().catch(() => ({}));
+    if (!backendRes.ok) {
+      return {
+        ok: false,
+        status: backendRes.status,
+        error: data.error || "Generation failed",
+      };
+    }
+    return { ok: true, text: (data.text || "").trim() };
+  } catch (err) {
+    return { ok: false, status: 502, error: "Backend unavailable: " + err.message };
+  }
+}
+
 export default async (req) => {
   if (req.method === "OPTIONS") {
     return optionsResponse();
@@ -62,29 +159,39 @@ export default async (req) => {
     return jsonResponse(400, { error: "Job description and resume are required" });
   }
 
-  // 5. Run generation against the backend
-  const backendUrl = getEnv("BACKEND_URL", "https://cover-letter-api-production-fe17.up.railway.app");
-
   try {
-    const backendRes = await fetch(`${backendUrl}/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobDescription, resume, tone }),
-    });
+    // 5. Run generation: backend first, direct provider fallback.
+    const backendResult = await generateViaBackend({ jobDescription, resume, tone });
+    let finalText = "";
+    let generationError = "";
 
-    const data = await backendRes.json().catch(() => ({}));
+    if (backendResult.ok && backendResult.text) {
+      finalText = backendResult.text;
+    } else {
+      const directResult = await generateViaDirectProvider({ jobDescription, resume, tone });
+      if (directResult.ok && directResult.text) {
+        finalText = directResult.text;
+      } else {
+        generationError = backendResult.error || directResult.error || "Generation failed";
+        if (directResult.error) {
+          generationError = directResult.error;
+        }
+      }
+    }
 
-    if (!backendRes.ok) {
-      let backendError = data.error || "Generation failed";
+    if (!finalText) {
+      let backendError = generationError || "Generation failed";
       const lowered = String(backendError).toLowerCase();
-      if (lowered.includes("incorrect api key") || lowered.includes("invalid api key") || lowered.includes("openai")) {
-        backendError = "AI backend is misconfigured. The model API key is invalid or missing.";
+      if (lowered.includes("incorrect api key") || lowered.includes("invalid api key")) {
+        backendError = "AI provider key is invalid. Update OPENAI_API_KEY.";
+      }
+      if (lowered.includes("is not a valid model id")) {
+        backendError = "AI model is invalid. Set OPENAI_MODEL to a valid provider model (e.g. openrouter/auto).";
       }
       if (lowered.includes("exceeded your current quota") || lowered.includes("insufficient_quota") || lowered.includes("429")) {
-        backendError = "AI provider quota exceeded. Add billing/credits to your OpenAI project, then retry.";
+        backendError = "AI provider quota exceeded. Add billing/credits to your provider project, then retry.";
       }
 
-      // Log failure
       await supabase.from("generation_logs").insert({
         user_email: user.email,
         user_id: user.id,
@@ -93,7 +200,7 @@ export default async (req) => {
         error_message: backendError,
       }).catch(() => {});
 
-      return jsonResponse(backendRes.status, { error: backendError });
+      return jsonResponse(502, { error: backendError });
     }
 
     // 6. Increment generation count
@@ -112,7 +219,7 @@ export default async (req) => {
       generations_at_request: newCount,
     }).catch(() => {});
 
-    const fullText = (data.text || "").trim();
+    const fullText = finalText;
 
     // 8. Determine access level.
     // At this point, free-tier users are still within their allowed generations,
