@@ -3,6 +3,13 @@ import { getAuthenticatedUser, getSupabaseAdmin } from "./shared/supabase.mjs";
 import { getEnv } from "./shared/env.mjs";
 import { jsonResponse, optionsResponse } from "./shared/http.mjs";
 
+function appendIfValue(params, key, value) {
+  if (value === undefined || value === null) return;
+  const s = String(value).trim();
+  if (!s) return;
+  params.set(key, s);
+}
+
 export default async (req) => {
   try {
     if (req.method === "OPTIONS") {
@@ -18,23 +25,41 @@ export default async (req) => {
       return jsonResponse(401, { error: "Not authenticated" });
     }
 
-    const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
-    const priceId = getEnv("STRIPE_PRICE_ID");
-    if (!stripeSecretKey || !priceId) {
-      return jsonResponse(500, {
-        error: "Missing Stripe checkout env. Set STRIPE_SECRET_KEY and STRIPE_PRICE_ID.",
-      });
-    }
-
-    const stripe = new Stripe(stripeSecretKey);
     const rawSiteUrl = getEnv("SITE_URL") || getEnv("URL") || req.headers.get("origin") || "";
     let siteUrl = "";
     try {
       siteUrl = new URL(rawSiteUrl).origin;
     } catch (_) {}
     if (!siteUrl) {
-      return jsonResponse(500, { error: "Missing SITE_URL/URL for Stripe redirect URLs" });
+      return jsonResponse(500, { error: "Missing SITE_URL/URL for checkout redirect URLs" });
     }
+
+    // Lemon Squeezy path (preferred when configured).
+    const lemonCheckoutUrl = getEnv("LEMON_CHECKOUT_URL");
+    if (lemonCheckoutUrl) {
+      try {
+        const u = new URL(lemonCheckoutUrl);
+        appendIfValue(u.searchParams, "checkout[email]", user.email);
+        appendIfValue(u.searchParams, "checkout[custom][user_id]", user.id);
+        appendIfValue(u.searchParams, "checkout[custom][user_email]", user.email);
+        appendIfValue(u.searchParams, "checkout[success_url]", `${siteUrl}/?checkout=success&paid=1`);
+        appendIfValue(u.searchParams, "checkout[cancel_url]", `${siteUrl}/`);
+        return jsonResponse(200, { url: u.toString(), provider: "lemon" });
+      } catch (_) {
+        return jsonResponse(500, { error: "LEMON_CHECKOUT_URL is invalid." });
+      }
+    }
+
+    // Stripe path.
+    const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
+    const priceId = getEnv("STRIPE_PRICE_ID");
+    if (!stripeSecretKey || !priceId) {
+      return jsonResponse(500, {
+        error: "Missing checkout env. Set LEMON_CHECKOUT_URL or STRIPE_SECRET_KEY + STRIPE_PRICE_ID.",
+      });
+    }
+
+    const stripe = new Stripe(stripeSecretKey);
 
     let profile = null;
     try {
