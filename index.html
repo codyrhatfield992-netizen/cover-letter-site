@@ -174,6 +174,26 @@
       background-clip: text;
     }
 
+    .trust-row {
+      margin-top: 14px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .trust-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: rgba(255,255,255,.78);
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+
     /* ---- STEP INDICATOR ---- */
     .steps {
       display: flex;
@@ -257,16 +277,13 @@
       border-color: rgba(255,255,255,.12);
     }
 
-    .feature-icon {
-      width: 42px; height: 42px;
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
-      margin-bottom: 14px;
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.45;
+      letter-spacing: -0.2px;
+      margin: 0;
     }
-
-    .feature-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
-    .feature-card span { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
     /* ---- MAIN GRID ---- */
     .main-grid {
@@ -473,8 +490,10 @@
       content: '';
       position: absolute;
       left: 0; right: 0; bottom: 0;
-      height: 70%;
-      background: linear-gradient(to bottom, transparent 0%, rgba(10,14,26,.95) 60%);
+      height: 38%;
+      background: linear-gradient(to bottom, rgba(10,14,26,.04) 0%, rgba(10,14,26,.92) 88%);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
       border-radius: 0 0 var(--radius2) var(--radius2);
       pointer-events: none;
     }
@@ -803,10 +822,15 @@
 
     <!-- HERO -->
     <section class="hero-header">
-      <h1>Cover letters that actually<br/>sound like you.</h1>
-      <p>Upload your resume, paste a job description, and get a polished, tailored cover letter in seconds.</p>
+      <h1>The Cover Letter You&rsquo;d Write<br/>If You Had Time.</h1>
+      <p>Upload your resume, paste the job description, and generate a role-specific cover letter in under 30 seconds.</p>
       <div class="pricing-pill">
         3 free generations &middot; then <strong>&nbsp;$9.99/month</strong>&nbsp; for unlimited
+      </div>
+      <div class="trust-row">
+        <span class="trust-pill">No data stored after generation</span>
+        <span class="trust-pill">Cancel anytime</span>
+        <span class="trust-pill">3 free generations included</span>
       </div>
     </section>
 
@@ -831,19 +855,13 @@
     <!-- FEATURES -->
     <div class="features">
       <div class="feature-card">
-        <div class="feature-icon" style="background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.2);">&#9889;</div>
-        <h3>Lightning Fast</h3>
-        <span>Generate a tailored cover letter in under 30 seconds. No more staring at a blank page.</span>
+        <h3>Used by students, interns, and early-career professionals.</h3>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.2);">&#9996;</div>
-        <h3>Sounds Human</h3>
-        <span>No robotic filler or generic fluff. Every letter is natural and specific to you.</span>
+        <h3>No templates. Every letter is generated fresh.</h3>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background: rgba(236,72,153,.12); border: 1px solid rgba(236,72,153,.2);">&#127919;</div>
-        <h3>Job-Tailored</h3>
-        <span>Matches your experience to the job description so every letter hits the right notes.</span>
+        <h3>Designed to sound like you, not AI.</h3>
       </div>
     </div>
 
@@ -920,7 +938,7 @@
             <div class="paywall-overlay">
               <div class="paywall-card">
                 <h3>Unlock your full cover letter</h3>
-                <p>Unlimited generations for $9.99/month. Cancel anytime.</p>
+                <p>Unlock the full letter + unlimited generations for $9.99/month.</p>
                 <button class="btn primary" id="paywallUpgrade" type="button">Upgrade Now</button>
               </div>
             </div>
@@ -1276,7 +1294,7 @@
         els.genCounter.textContent = remaining + " / " + limit + " free remaining";
       } else {
         els.genCounter.className = "gen-counter exhausted";
-        els.genCounter.textContent = "0 free generations left";
+        els.genCounter.textContent = "Preview mode (upgrade to unlock full letters)";
       }
     }
 
@@ -1371,6 +1389,27 @@
       lines.push("Sincerely,");
       lines.push("[Your Name]");
       return lines.join("\n");
+    }
+
+    function buildPreviewText(fullText) {
+      var src = (fullText || "").trim();
+      if (!src) return "";
+      var ratio = 0.65;
+      var cut = Math.max(160, Math.floor(src.length * ratio));
+      var preview = src.slice(0, cut);
+      var lastSentence = Math.max(preview.lastIndexOf(". "), preview.lastIndexOf("\n\n"));
+      if (lastSentence > 120) {
+        preview = preview.slice(0, lastSentence + 1);
+      }
+      return preview.trim();
+    }
+
+    function showLockedPreview(previewText) {
+      var visible = (previewText || "").trim();
+      lastGeneratedText = visible;
+      els.output.textContent = visible || "Preview unavailable.";
+      els.outputWrap.classList.add("locked");
+      els.status.textContent = "Preview";
     }
 
     async function getValidSession() {
@@ -1891,15 +1930,7 @@
           openEmailModal();
           return;
         }
-
-        // Pre-check free limit (server enforces too)
-        var isPro = isPaidUser(profileData);
-        var freeRemaining = Math.max(0, (profileData.free_limit || 3) - (profileData.generations_used || 0));
-        if (!isPro && freeRemaining <= 0) {
-          setToast("You've used all free generations. Upgrade for unlimited access.");
-          startCheckout();
-          return;
-        }
+        // No hard pre-block. Users can still generate and view a locked preview.
       }
 
       // Start generation
@@ -1943,8 +1974,9 @@
             profileData.generations_used = data.generations_used || profileData.generations_used;
             saveLocalGenerationUsed(profileData.generations_used || 0);
             updateGenCounter();
-            setToast(data.message || "Free generations exhausted. Upgrade for unlimited.");
-            startCheckout();
+            var fallbackPreviewFromLimit = buildPreviewText(runLocalGeneration(jobDescription, resumeText, tone));
+            showLockedPreview(fallbackPreviewFromLimit);
+            setToast(data.message || "Preview generated. Upgrade to unlock the full letter.");
             return;
           }
           // Hard fallback: never block the user on provider/backend issues.
@@ -1954,11 +1986,18 @@
             updateGenCounter();
           }
           var fallbackTextFromError = runLocalGeneration(jobDescription, resumeText, tone);
-          lastGeneratedText = fallbackTextFromError;
-          els.output.textContent = fallbackTextFromError;
-          els.outputWrap.classList.remove("locked");
-          els.status.textContent = "Done (Fallback)";
-          setToast("AI provider unavailable. Generated fallback cover letter instead.", true);
+          var overLimitAfterError = !isPaidUser(profileData) &&
+            (profileData.generations_used || 0) >= (profileData.free_limit || 3);
+          if (overLimitAfterError) {
+            showLockedPreview(buildPreviewText(fallbackTextFromError));
+            setToast("Preview generated. Upgrade to unlock the full letter.");
+          } else {
+            lastGeneratedText = fallbackTextFromError;
+            els.output.textContent = fallbackTextFromError;
+            els.outputWrap.classList.remove("locked");
+            els.status.textContent = "Done (Fallback)";
+            setToast("AI provider unavailable. Generated fallback cover letter instead.", true);
+          }
           return;
         }
 
@@ -1976,11 +2015,9 @@
 
         // If locked, render only preview text on the client.
         if (data.locked) {
-          var visiblePreview = previewText || "Preview unavailable.";
-          lastGeneratedText = visiblePreview;
-          els.output.textContent = visiblePreview;
-          els.outputWrap.classList.add("locked");
-          els.status.textContent = "Preview";
+          var visiblePreview = previewText || buildPreviewText(fullText) || "Preview unavailable.";
+          showLockedPreview(visiblePreview);
+          setToast("Preview generated. Upgrade to unlock the full letter.");
         } else {
           lastGeneratedText = fullText;
           els.output.textContent = lastGeneratedText || "No output returned.";
@@ -1998,11 +2035,18 @@
           updateGenCounter();
         }
         var fallbackTextOnCatch = runLocalGeneration(jobDescription, resumeText, tone);
-        lastGeneratedText = fallbackTextOnCatch;
-        els.output.textContent = fallbackTextOnCatch;
-        els.outputWrap.classList.remove("locked");
-        els.status.textContent = "Done (Fallback)";
-        setToast("AI request failed. Generated fallback cover letter instead.", true);
+        var overLimitOnCatch = !isPaidUser(profileData) &&
+          (profileData.generations_used || 0) >= (profileData.free_limit || 3);
+        if (overLimitOnCatch) {
+          showLockedPreview(buildPreviewText(fallbackTextOnCatch));
+          setToast("Preview generated. Upgrade to unlock the full letter.");
+        } else {
+          lastGeneratedText = fallbackTextOnCatch;
+          els.output.textContent = fallbackTextOnCatch;
+          els.outputWrap.classList.remove("locked");
+          els.status.textContent = "Done (Fallback)";
+          setToast("AI request failed. Generated fallback cover letter instead.", true);
+        }
       } finally {
         isGenerating = false;
         els.generate.disabled = false;

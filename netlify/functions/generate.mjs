@@ -79,6 +79,20 @@ function generateFallbackCoverLetter({ jobDescription, resume, tone }) {
   return lines.join("\n");
 }
 
+function buildLockedPreview(text, ratio = 0.65) {
+  const src = String(text || "").trim();
+  if (!src) return "";
+
+  const safeRatio = Math.min(0.75, Math.max(0.55, ratio));
+  const cut = Math.max(160, Math.floor(src.length * safeRatio));
+  let preview = src.slice(0, cut);
+  const sentenceBreak = Math.max(preview.lastIndexOf(". "), preview.lastIndexOf("\n\n"));
+  if (sentenceBreak > 120) {
+    preview = preview.slice(0, sentenceBreak + 1);
+  }
+  return preview.trim();
+}
+
 async function generateViaDirectProvider({ jobDescription, resume, tone }) {
   const apiKey = getEnv("OPENAI_API_KEY");
   if (!apiKey) {
@@ -191,24 +205,7 @@ export default async (req) => {
   const freeLimit = getFreeLimit();
   const freeRemaining = Math.max(0, freeLimit - generationsUsed);
 
-  // 3. Block if no active subscription AND free generations exhausted
-  if (!isSubscribed && freeRemaining <= 0) {
-    // Log the blocked attempt
-    await supabase.from("generation_logs").insert({
-      user_email: user.email,
-      user_id: user.id,
-      success: false,
-      generations_at_request: generationsUsed,
-      error_message: "Free limit exhausted, no active subscription",
-    }).catch(() => {});
-
-    return jsonResponse(403, {
-      error: "limit_reached",
-      message: "You've used all 3 free generations. Upgrade for unlimited access.",
-      generations_used: generationsUsed,
-      free_limit: freeLimit,
-    });
-  }
+  const lockPreviewOnly = !isSubscribed && freeRemaining <= 0;
 
   // 4. Parse request body
   let body;
@@ -295,17 +292,26 @@ export default async (req) => {
     const fullText = finalText;
 
     // 8. Determine access level.
-    // At this point, free-tier users are still within their allowed generations,
-    // so successful responses should return full access.
     const freeRemainingAfterGeneration = Math.max(0, freeLimit - newCount);
-    const responsePayload = {
-      text: fullText,
-      full_access: true,
-      generations_used: newCount,
-      free_limit: freeLimit,
-      free_remaining: isSubscribed ? null : freeRemainingAfterGeneration,
-      locked: false,
-    };
+    const responsePayload = lockPreviewOnly
+      ? {
+          text: "",
+          preview: buildLockedPreview(fullText, 0.65),
+          full_access: false,
+          locked: true,
+          message: "Unlock the full letter + unlimited generations for $9.99/month.",
+          generations_used: newCount,
+          free_limit: freeLimit,
+          free_remaining: 0,
+        }
+      : {
+          text: fullText,
+          full_access: true,
+          locked: false,
+          generations_used: newCount,
+          free_limit: freeLimit,
+          free_remaining: isSubscribed ? null : freeRemainingAfterGeneration,
+        };
 
     return jsonResponse(200, responsePayload);
   } catch (err) {
