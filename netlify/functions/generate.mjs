@@ -79,11 +79,11 @@ function generateFallbackCoverLetter({ jobDescription, resume, tone }) {
   return lines.join("\n");
 }
 
-function buildLockedPreview(text, ratio = 0.65) {
+function buildLockedPreview(text, ratio = 0.5) {
   const src = String(text || "").trim();
   if (!src) return "";
 
-  const safeRatio = Math.min(0.75, Math.max(0.55, ratio));
+  const safeRatio = Math.min(0.6, Math.max(0.4, ratio));
   const cut = Math.max(160, Math.floor(src.length * safeRatio));
   let preview = src.slice(0, cut);
   const sentenceBreak = Math.max(preview.lastIndexOf(". "), preview.lastIndexOf("\n\n"));
@@ -296,7 +296,7 @@ export default async (req) => {
     const responsePayload = lockPreviewOnly
       ? {
           text: "",
-          preview: buildLockedPreview(fullText, 0.65),
+          preview: buildLockedPreview(fullText, 0.5),
           full_access: false,
           locked: true,
           message: "Unlock the full letter + unlimited generations for $9.99/month.",

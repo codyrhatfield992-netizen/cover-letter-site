@@ -490,10 +490,10 @@
       content: '';
       position: absolute;
       left: 0; right: 0; bottom: 0;
-      height: 38%;
-      background: linear-gradient(to bottom, rgba(10,14,26,.04) 0%, rgba(10,14,26,.92) 88%);
-      backdrop-filter: blur(3px);
-      -webkit-backdrop-filter: blur(3px);
+      height: 58%;
+      background: linear-gradient(to bottom, rgba(10,14,26,.16) 0%, rgba(10,14,26,.97) 62%);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       border-radius: 0 0 var(--radius2) var(--radius2);
       pointer-events: none;
     }
@@ -1394,7 +1394,7 @@
     function buildPreviewText(fullText) {
       var src = (fullText || "").trim();
       if (!src) return "";
-      var ratio = 0.65;
+      var ratio = 0.5;
       var cut = Math.max(160, Math.floor(src.length * ratio));
       var preview = src.slice(0, cut);
       var lastSentence = Math.max(preview.lastIndexOf(". "), preview.lastIndexOf("\n\n"));
